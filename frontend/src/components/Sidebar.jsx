@@ -1,0 +1,46 @@
+import React, { useState } from 'react'
+import {
+  LayoutDashboard, List, CalendarDays, BarChart2,
+  Tag, Settings,
+} from 'lucide-react'
+
+const NAV = [
+  { id: 'dashboard', label: 'Dashboard',  icon: LayoutDashboard },
+  { id: 'trades',    label: 'Trades',     icon: List },
+  { id: 'calendar',  label: 'Calendar',   icon: CalendarDays },
+  { id: 'analytics', label: 'Analytics',  icon: BarChart2 },
+  { id: 'tags',      label: 'Tags',       icon: Tag },
+]
+
+export default function Sidebar({ collapsed }) {
+  const [active, setActive] = useState('dashboard')
+
+  return (
+    <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
+      <nav className="sidebar-nav">
+        {NAV.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            className={`sidebar-item${active === id ? ' active' : ''}`}
+            onClick={() => setActive(id)}
+            title={collapsed ? label : undefined}
+          >
+            <Icon size={16} />
+            <span className="sidebar-label">{label}</span>
+          </button>
+        ))}
+      </nav>
+
+      <div className="sidebar-bottom">
+        <button
+          className={`sidebar-item${active === 'settings' ? ' active' : ''}`}
+          onClick={() => setActive('settings')}
+          title={collapsed ? 'Settings' : undefined}
+        >
+          <Settings size={16} />
+          <span className="sidebar-label">Settings</span>
+        </button>
+      </div>
+    </aside>
+  )
+}
