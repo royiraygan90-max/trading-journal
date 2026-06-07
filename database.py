@@ -1,8 +1,6 @@
 import sqlite3
 import json
 import os
-import random
-from datetime import datetime, timedelta
 
 DB_PATH = os.environ.get('DB_PATH', '/app/data/trading_journal.db')
 
@@ -122,11 +120,6 @@ def init_db():
     for key, value in default_settings:
         c.execute('INSERT OR IGNORE INTO settings VALUES (?,?)', (key, value))
 
-    # Seed sample trades so the dashboard looks live on first run
-    c.execute('SELECT COUNT(*) FROM trades')
-    if c.fetchone()[0] == 0:
-        _seed_sample_trades(c)
-
     # Add journal columns to existing DBs (idempotent)
     journal_cols = [
         "ALTER TABLE trades ADD COLUMN strategy       TEXT    DEFAULT ''",
@@ -154,60 +147,3 @@ def init_db():
     conn.close()
 
 
-def _seed_sample_trades(cursor):
-    random.seed(42)
-    now = datetime.now()
-
-    instrument_cfg = {
-        'ES':  {'base': 5050.0, 'tick': 0.25, 'tick_val': 12.50},
-        'NQ':  {'base': 17800.0,'tick': 0.25, 'tick_val':  5.00},
-        'MES': {'base': 5050.0, 'tick': 0.25, 'tick_val':  1.25},
-        'MNQ': {'base': 17800.0,'tick': 0.25, 'tick_val':  0.50},
-    }
-    symbols     = ['ES', 'NQ', 'MES', 'MNQ']
-    directions  = ['Long', 'Short']
-    tag_pool    = ['tag_breakout', 'tag_reversal', 'tag_trend',
-                   'tag_setup_a', 'tag_setup_b', 'tag_scalp']
-
-    trades = []
-    for i in range(55):
-        days_back = random.randint(0, 89)
-        hour      = random.randint(8, 15)
-        minute    = random.randint(0, 59)
-        dt        = (now - timedelta(days=days_back)).replace(
-            hour=hour, minute=minute, second=0, microsecond=0)
-
-        symbol    = random.choice(symbols)
-        direction = random.choice(directions)
-        cfg       = instrument_cfg[symbol]
-
-        entry = round(cfg['base'] + random.uniform(-80, 80), 2)
-        win   = random.random() < 0.58          # ~58 % win rate
-        ticks = random.randint(4, 24) if win else -random.randint(2, 12)
-
-        if direction == 'Long':
-            exit_price = round(entry + ticks * cfg['tick'], 2)
-        else:
-            exit_price = round(entry - ticks * cfg['tick'], 2)
-
-        qty        = random.randint(1, 3)
-        gross_pnl  = round(ticks * cfg['tick_val'] * qty, 2)
-        commission = round(qty * 2 * 2.09, 2)        # $2.09/side/contract
-        net_pnl    = round(gross_pnl - commission, 2)
-        r_mult     = round(ticks / 8, 2)             # assume 8-tick initial risk
-        trade_tags = json.dumps(random.sample(tag_pool, random.randint(0, 2)))
-
-        trades.append((
-            dt.strftime('%Y-%m-%dT%H:%M'),
-            symbol, direction,
-            entry, exit_price, qty,
-            ticks, r_mult, net_pnl, commission,
-            '', trade_tags, 0,
-        ))
-
-    cursor.executemany('''
-        INSERT INTO trades
-            (datetime, symbol, direction, entry, exit, quantity,
-             ticks, r_multiple, pnl, commission, notes, tags, has_screenshot)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ''', trades)
