@@ -1,5 +1,5 @@
 import React from 'react'
-import { TrendingUp, Plus, Sliders, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { TrendingUp, Plus, Sliders, ChevronLeft, ChevronRight, X, Pencil, Check } from 'lucide-react'
 
 const DIRECTIONS = ['Long', 'Short']
 const OUTCOMES   = [
@@ -13,6 +13,7 @@ export default function Header({
   instruments,
   sidebarCollapsed, onToggleSidebar,
   onAddTrade, onCustomize,
+  isEditMode, onEditLayout, onSaveLayout, onCancelLayout,
 }) {
   const hasFilters = filters.dateFrom || filters.dateTo || filters.symbol
     || filters.direction || filters.outcome || filters.tags?.length
@@ -97,6 +98,23 @@ export default function Header({
 
       {/* Actions */}
       <div className="header-actions">
+        {isEditMode ? (
+          <>
+            <button className="btn-save-layout" onClick={onSaveLayout}>
+              <Check size={13} />
+              Save Layout
+            </button>
+            <button className="btn-cancel-layout" onClick={onCancelLayout}>
+              <X size={13} />
+              Cancel
+            </button>
+          </>
+        ) : (
+          <button className="btn-edit-layout" onClick={onEditLayout} title="Edit dashboard layout">
+            <Pencil size={13} />
+            Edit Layout
+          </button>
+        )}
         <button className="btn-icon" onClick={onCustomize} title="Customize dashboard">
           <Sliders size={14} />
         </button>

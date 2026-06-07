@@ -3,7 +3,10 @@ import os
 import uuid
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
 from database import get_db, init_db
+
+IMAGES_DIR = os.environ.get('IMAGES_DIR', '/app/data/images')
 
 app = Flask(
     __name__,
@@ -13,6 +16,7 @@ app = Flask(
 CORS(app)
 
 # ── init on startup ──────────────────────────────────────────────────────────
+os.makedirs(IMAGES_DIR, exist_ok=True)
 with app.app_context():
     init_db()
 
@@ -20,6 +24,15 @@ with app.app_context():
 # ── helpers ──────────────────────────────────────────────────────────────────
 def row_to_dict(row):
     return dict(row)
+
+
+def trade_to_dict(row):
+    d = dict(row)
+    try:
+        d['tags'] = json.loads(d.get('tags') or '[]')
+    except Exception:
+        d['tags'] = []
+    return d
 
 
 # ── trades ───────────────────────────────────────────────────────────────────
@@ -30,7 +43,7 @@ def get_trades():
         'SELECT * FROM trades ORDER BY datetime DESC'
     ).fetchall()
     db.close()
-    return jsonify([row_to_dict(r) for r in rows])
+    return jsonify([trade_to_dict(r) for r in rows])
 
 
 @app.route('/api/trades', methods=['POST'])
@@ -40,29 +53,49 @@ def add_trade():
     db.execute('''
         INSERT INTO trades
             (datetime, symbol, direction, entry, exit, quantity,
-             ticks, r_multiple, pnl, commission, notes, tags, has_screenshot)
+             ticks, r_multiple, pnl, commission, notes, tags, has_screenshot,
+             strategy, plan, execution, emotion,
+             entry_score, exit_score, risk_score, plan_adherence, lessons,
+             plan_followed, biggest_mistake, would_do_differently, overall_rating, chart_link)
         VALUES (:datetime,:symbol,:direction,:entry,:exit,:quantity,
-                :ticks,:r_multiple,:pnl,:commission,:notes,:tags,:has_screenshot)
+                :ticks,:r_multiple,:pnl,:commission,:notes,:tags,:has_screenshot,
+                :strategy,:plan,:execution,:emotion,
+                :entry_score,:exit_score,:risk_score,:plan_adherence,:lessons,
+                :plan_followed,:biggest_mistake,:would_do_differently,:overall_rating,:chart_link)
     ''', {
-        'datetime':       data.get('datetime', ''),
-        'symbol':         data.get('symbol', ''),
-        'direction':      data.get('direction', 'Long'),
-        'entry':          float(data.get('entry', 0)),
-        'exit':           float(data.get('exit', 0)),
-        'quantity':       int(data.get('quantity', 1)),
-        'ticks':          data.get('ticks'),
-        'r_multiple':     data.get('r_multiple'),
-        'pnl':            float(data.get('pnl', 0)),
-        'commission':     float(data.get('commission', 0)),
-        'notes':          data.get('notes', ''),
-        'tags':           json.dumps(data.get('tags', [])),
-        'has_screenshot': int(data.get('has_screenshot', 0)),
+        'datetime':             data.get('datetime', ''),
+        'symbol':               data.get('symbol', ''),
+        'direction':            data.get('direction', 'Long'),
+        'entry':                float(data.get('entry', 0)),
+        'exit':                 float(data.get('exit', 0)),
+        'quantity':             int(data.get('quantity', 1)),
+        'ticks':                data.get('ticks'),
+        'r_multiple':           data.get('r_multiple'),
+        'pnl':                  float(data.get('pnl', 0)),
+        'commission':           float(data.get('commission', 0)),
+        'notes':                data.get('notes', ''),
+        'tags':                 json.dumps(data.get('tags', [])),
+        'has_screenshot':       int(data.get('has_screenshot', 0)),
+        'strategy':             data.get('strategy', ''),
+        'plan':                 data.get('plan', ''),
+        'execution':            data.get('execution', ''),
+        'emotion':              data.get('emotion', ''),
+        'entry_score':          int(data.get('entry_score', 0)),
+        'exit_score':           int(data.get('exit_score', 0)),
+        'risk_score':           int(data.get('risk_score', 0)),
+        'plan_adherence':       int(data.get('plan_adherence', 0)),
+        'lessons':              data.get('lessons', ''),
+        'plan_followed':        data.get('plan_followed', ''),
+        'biggest_mistake':      data.get('biggest_mistake', ''),
+        'would_do_differently': data.get('would_do_differently', ''),
+        'overall_rating':       int(data.get('overall_rating', 0)),
+        'chart_link':           data.get('chart_link', ''),
     })
     db.commit()
     trade_id = db.execute('SELECT last_insert_rowid()').fetchone()[0]
     row = db.execute('SELECT * FROM trades WHERE id=?', (trade_id,)).fetchone()
     db.close()
-    return jsonify(row_to_dict(row)), 201
+    return jsonify(trade_to_dict(row)), 201
 
 
 @app.route('/api/trades/<int:trade_id>', methods=['PUT'])
@@ -75,30 +108,50 @@ def update_trade(trade_id):
             entry=:entry, exit=:exit, quantity=:quantity,
             ticks=:ticks, r_multiple=:r_multiple, pnl=:pnl,
             commission=:commission, notes=:notes, tags=:tags,
-            has_screenshot=:has_screenshot
+            has_screenshot=:has_screenshot,
+            strategy=:strategy, plan=:plan, execution=:execution,
+            emotion=:emotion, entry_score=:entry_score, exit_score=:exit_score,
+            risk_score=:risk_score, plan_adherence=:plan_adherence, lessons=:lessons,
+            plan_followed=:plan_followed, biggest_mistake=:biggest_mistake,
+            would_do_differently=:would_do_differently, overall_rating=:overall_rating,
+            chart_link=:chart_link
         WHERE id=:id
     ''', {
-        'id':             trade_id,
-        'datetime':       data.get('datetime', ''),
-        'symbol':         data.get('symbol', ''),
-        'direction':      data.get('direction', 'Long'),
-        'entry':          float(data.get('entry', 0)),
-        'exit':           float(data.get('exit', 0)),
-        'quantity':       int(data.get('quantity', 1)),
-        'ticks':          data.get('ticks'),
-        'r_multiple':     data.get('r_multiple'),
-        'pnl':            float(data.get('pnl', 0)),
-        'commission':     float(data.get('commission', 0)),
-        'notes':          data.get('notes', ''),
-        'tags':           json.dumps(data.get('tags', [])),
-        'has_screenshot': int(data.get('has_screenshot', 0)),
+        'id':                   trade_id,
+        'datetime':             data.get('datetime', ''),
+        'symbol':               data.get('symbol', ''),
+        'direction':            data.get('direction', 'Long'),
+        'entry':                float(data.get('entry', 0)),
+        'exit':                 float(data.get('exit', 0)),
+        'quantity':             int(data.get('quantity', 1)),
+        'ticks':                data.get('ticks'),
+        'r_multiple':           data.get('r_multiple'),
+        'pnl':                  float(data.get('pnl', 0)),
+        'commission':           float(data.get('commission', 0)),
+        'notes':                data.get('notes', ''),
+        'tags':                 json.dumps(data.get('tags', [])),
+        'has_screenshot':       int(data.get('has_screenshot', 0)),
+        'strategy':             data.get('strategy', ''),
+        'plan':                 data.get('plan', ''),
+        'execution':            data.get('execution', ''),
+        'emotion':              data.get('emotion', ''),
+        'entry_score':          int(data.get('entry_score')  or 0),
+        'exit_score':           int(data.get('exit_score')   or 0),
+        'risk_score':           int(data.get('risk_score')   or 0),
+        'plan_adherence':       int(data.get('plan_adherence') or 0),
+        'lessons':              data.get('lessons', ''),
+        'plan_followed':        data.get('plan_followed', ''),
+        'biggest_mistake':      data.get('biggest_mistake', ''),
+        'would_do_differently': data.get('would_do_differently', ''),
+        'overall_rating':       int(data.get('overall_rating') or 0),
+        'chart_link':           data.get('chart_link', ''),
     })
     db.commit()
     row = db.execute('SELECT * FROM trades WHERE id=?', (trade_id,)).fetchone()
     db.close()
     if row is None:
         return jsonify({'error': 'Not found'}), 404
-    return jsonify(row_to_dict(row))
+    return jsonify(trade_to_dict(row))
 
 
 @app.route('/api/trades/<int:trade_id>', methods=['DELETE'])
@@ -123,9 +176,19 @@ def get_instruments():
 @app.route('/api/tags', methods=['GET'])
 def get_tags():
     db   = get_db()
-    rows = db.execute('SELECT * FROM tags ORDER BY label').fetchall()
+    tags = [row_to_dict(r) for r in db.execute('SELECT * FROM tags ORDER BY label').fetchall()]
+    trade_rows = db.execute('SELECT tags FROM trades').fetchall()
     db.close()
-    return jsonify([row_to_dict(r) for r in rows])
+    counts = {}
+    for row in trade_rows:
+        try:
+            for tid in json.loads(row['tags'] or '[]'):
+                counts[tid] = counts.get(tid, 0) + 1
+        except Exception:
+            pass
+    for tag in tags:
+        tag['count'] = counts.get(tag['id'], 0)
+    return jsonify(tags)
 
 
 @app.route('/api/tags', methods=['POST'])
@@ -138,12 +201,36 @@ def add_tag():
     db.commit()
     row = db.execute('SELECT * FROM tags WHERE id=?', (tag_id,)).fetchone()
     db.close()
-    return jsonify(row_to_dict(row)), 201
+    result = row_to_dict(row)
+    result['count'] = 0
+    return jsonify(result), 201
+
+
+@app.route('/api/tags/<tag_id>', methods=['PUT'])
+def update_tag(tag_id):
+    data = request.get_json()
+    db = get_db()
+    db.execute('UPDATE tags SET label=?, color=? WHERE id=?',
+               (data.get('label', ''), data.get('color', '#8a9bb0'), tag_id))
+    db.commit()
+    row = db.execute('SELECT * FROM tags WHERE id=?', (tag_id,)).fetchone()
+    db.close()
+    if row is None:
+        return jsonify({'error': 'Not found'}), 404
+    return jsonify(row_to_dict(row))
 
 
 @app.route('/api/tags/<tag_id>', methods=['DELETE'])
 def delete_tag(tag_id):
     db = get_db()
+    trade_rows = db.execute('SELECT tags FROM trades').fetchall()
+    for row in trade_rows:
+        try:
+            if tag_id in json.loads(row['tags'] or '[]'):
+                db.close()
+                return jsonify({'error': 'Tag is in use by one or more trades'}), 409
+        except Exception:
+            pass
     db.execute('DELETE FROM tags WHERE id=?', (tag_id,))
     db.commit()
     db.close()
@@ -225,6 +312,98 @@ def update_setting(key):
     db.commit()
     db.close()
     return jsonify({'key': key, 'value': value})
+
+
+# ── AI analysis ──────────────────────────────────────────────────────────────
+@app.route('/api/ai-analysis', methods=['POST'])
+def ai_analysis():
+    api_key = os.environ.get('ANTHROPIC_API_KEY')
+    if not api_key:
+        return jsonify({'error': 'ANTHROPIC_API_KEY is not configured on this server.'}), 503
+
+    data  = request.get_json()
+    trade = data.get('trade', {})
+
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
+        prompt = f"""You are an expert trading coach reviewing a futures trade. Be concise and specific.
+
+Trade: {trade.get('symbol')} {trade.get('direction')} — P&L: ${trade.get('pnl')}, Ticks: {trade.get('ticks')}, R: {trade.get('r_multiple')}
+Entry: {trade.get('entry')} → Exit: {trade.get('exit')} | Qty: {trade.get('quantity')}
+
+Journal:
+- Strategy: {trade.get('strategy') or 'Not specified'}
+- Plan: {trade.get('plan') or 'Not specified'}
+- Execution: {trade.get('execution') or 'Not specified'}
+- Emotion: {trade.get('emotion') or 'Not specified'}
+- Entry score: {trade.get('entry_score', 0)}/10  Exit score: {trade.get('exit_score', 0)}/10  Risk score: {trade.get('risk_score', 0)}/10
+- Plan adherence: {trade.get('plan_adherence', 0)}%
+- Lessons noted: {trade.get('lessons') or 'None'}
+
+Provide feedback with three short sections: ✅ What went well, ⚠️ What to improve, 💡 Key takeaway. Under 180 words total."""
+
+        msg = client.messages.create(
+            model='claude-haiku-4-5-20251001',
+            max_tokens=400,
+            messages=[{'role': 'user', 'content': prompt}]
+        )
+        return jsonify({'analysis': msg.content[0].text})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── images ───────────────────────────────────────────────────────────────────
+ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
+
+
+@app.route('/api/trades/<int:trade_id>/images', methods=['GET'])
+def get_trade_images(trade_id):
+    folder = os.path.join(IMAGES_DIR, str(trade_id))
+    if not os.path.exists(folder):
+        return jsonify([])
+    files = sorted(
+        f for f in os.listdir(folder)
+        if os.path.splitext(f)[1].lower() in ALLOWED_EXTENSIONS
+    )
+    return jsonify([f'/api/images/{trade_id}/{f}' for f in files])
+
+
+@app.route('/api/trades/<int:trade_id>/images', methods=['POST'])
+def upload_trade_images(trade_id):
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    files = request.files.getlist('file')
+    folder = os.path.join(IMAGES_DIR, str(trade_id))
+    os.makedirs(folder, exist_ok=True)
+    saved = []
+    for f in files:
+        raw = secure_filename(f.filename or '')
+        if not raw:
+            continue
+        base, ext = os.path.splitext(raw)
+        if ext.lower() not in ALLOWED_EXTENSIONS:
+            continue
+        unique = f"{base}_{uuid.uuid4().hex[:6]}{ext}"
+        f.save(os.path.join(folder, unique))
+        saved.append(f'/api/images/{trade_id}/{unique}')
+    return jsonify(saved), 201
+
+
+@app.route('/api/trades/<int:trade_id>/images/<filename>', methods=['DELETE'])
+def delete_trade_image(trade_id, filename):
+    filename = os.path.basename(filename)
+    path = os.path.join(IMAGES_DIR, str(trade_id), filename)
+    if os.path.exists(path):
+        os.remove(path)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/images/<int:trade_id>/<filename>')
+def serve_trade_image(trade_id, filename):
+    filename = os.path.basename(filename)
+    folder = os.path.join(IMAGES_DIR, str(trade_id))
+    return send_from_directory(folder, filename)
 
 
 # ── SPA catch-all ─────────────────────────────────────────────────────────────

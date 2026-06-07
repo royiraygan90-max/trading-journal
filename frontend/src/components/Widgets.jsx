@@ -1,13 +1,17 @@
 import React, { useState, useMemo } from 'react'
+import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-  PieChart, Pie, Legend,
+  PieChart, Pie,
 } from 'recharts'
 import {
   BarChart2, PieChart as PieIcon, CheckSquare, CalendarDays,
-  Flame, ChevronLeft, ChevronRight, Check, Plus, Trash2,
+  Flame, ChevronLeft, ChevronRight, Check, Trash2, GripVertical,
 } from 'lucide-react'
-import { buildDailyPnl, buildCalendarData, fmt } from '../utils.jsx'
+import { buildDailyPnl, buildCalendarData, buildEquityData, fmt } from '../utils.jsx'
+import EquityChart from './EquityChart.jsx'
+
+const ResponsiveGridLayout = WidthProvider(Responsive)
 
 // ── Daily P&L chart ──────────────────────────────────────────────────────────
 function DailyPnlWidget({ trades }) {
@@ -302,37 +306,93 @@ function CalendarWidget({ trades }) {
   )
 }
 
+// ── Equity Curve wrapper (computes its own data from trades) ─────────────────
+function EquityCurveWidget({ trades }) {
+  const data = useMemo(() => buildEquityData(trades), [trades])
+  return <EquityChart data={data} />
+}
+
 // ── Widgets container ─────────────────────────────────────────────────────────
 const WIDGET_META = {
-  daily_pnl:  { label: 'Daily P&L',          component: DailyPnlWidget },
-  win_rate:   { label: 'Win Rate',            component: WinRateWidget },
-  streak:     { label: 'Streaks',             component: StreakWidget },
-  checklist:  { label: 'Pre-Trade Checklist', component: ChecklistWidget },
-  calendar:   { label: 'Trade Calendar',      component: CalendarWidget },
+  equity_curve: { label: 'Equity Curve',       component: EquityCurveWidget, fullWidth: true },
+  daily_pnl:    { label: 'Daily P&L',          component: DailyPnlWidget },
+  win_rate:     { label: 'Win Rate',            component: WinRateWidget },
+  streak:       { label: 'Streaks',             component: StreakWidget },
+  checklist:    { label: 'Pre-Trade Checklist', component: ChecklistWidget },
+  calendar:     { label: 'Trade Calendar',      component: CalendarWidget },
 }
 
 export default function Widgets({
-  visibleWidgets, trades, checklist,
+  visibleWidgets, widgetOrder,
+  trades, checklist,
   onAddChecklistItem, onUpdateChecklistItem, onDeleteChecklistItem,
+  layout, isEditMode, onLayoutChange,
 }) {
-  const active = visibleWidgets.filter(id => WIDGET_META[id])
-  if (active.length === 0) return null
+  const visibleIds = visibleWidgets.filter(id => WIDGET_META[id])
+
+  // ── Non-dashboard views: simple CSS grid (no react-grid-layout) ──────────
+  if (!layout) {
+    const order  = widgetOrder ?? visibleWidgets
+    const active = order.filter(id => WIDGET_META[id] && visibleWidgets.includes(id))
+    if (active.length === 0) return null
+    return (
+      <div className="widgets-grid">
+        {active.map(id => {
+          const { component: Component, fullWidth } = WIDGET_META[id]
+          return (
+            <div key={id} className={fullWidth ? 'widget-full-width' : undefined}>
+              <Component
+                trades={trades}
+                checklist={checklist}
+                onAdd={onAddChecklistItem}
+                onUpdate={onUpdateChecklistItem}
+                onDelete={onDeleteChecklistItem}
+              />
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  // ── Dashboard: react-grid-layout ─────────────────────────────────────────
+  if (visibleIds.length === 0) return null
 
   return (
-    <div className="widgets-grid">
-      {active.map(id => {
-        const { component: Component } = WIDGET_META[id]
-        return (
-          <Component
-            key={id}
-            trades={trades}
-            checklist={checklist}
-            onAdd={onAddChecklistItem}
-            onUpdate={onUpdateChecklistItem}
-            onDelete={onDeleteChecklistItem}
-          />
-        )
-      })}
+    <div className={`dashboard-grid${isEditMode ? ' edit-mode' : ''}`}>
+      <ResponsiveGridLayout
+        layouts={{ lg: layout, md: layout, sm: layout, xs: layout }}
+        breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480 }}
+        cols={{ lg: 12, md: 12, sm: 12, xs: 12 }}
+        rowHeight={60}
+        margin={[16, 16]}
+        isDraggable={isEditMode}
+        isResizable={isEditMode}
+        draggableHandle=".widget-drag-handle"
+        resizeHandles={['se']}
+        onLayoutChange={onLayoutChange}
+        useCSSTransforms
+      >
+        {visibleIds.map(id => {
+          const { component: Component } = WIDGET_META[id]
+          return (
+            <div key={id}>
+              {isEditMode && (
+                <div className="widget-drag-handle">
+                  <GripVertical size={13} />
+                </div>
+              )}
+              <Component
+                trades={trades}
+                checklist={checklist}
+                onAdd={onAddChecklistItem}
+                onUpdate={onUpdateChecklistItem}
+                onDelete={onDeleteChecklistItem}
+              />
+            </div>
+          )
+        })}
+      </ResponsiveGridLayout>
     </div>
   )
 }

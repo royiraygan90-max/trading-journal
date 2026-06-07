@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import {
   LayoutDashboard, List, CalendarDays, BarChart2,
   Tag, Settings,
@@ -12,17 +12,15 @@ const NAV = [
   { id: 'tags',      label: 'Tags',       icon: Tag },
 ]
 
-export default function Sidebar({ collapsed }) {
-  const [active, setActive] = useState('dashboard')
-
+export default function Sidebar({ collapsed, activeView, onSetView }) {
   return (
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
       <nav className="sidebar-nav">
         {NAV.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
-            className={`sidebar-item${active === id ? ' active' : ''}`}
-            onClick={() => setActive(id)}
+            className={`sidebar-item${activeView === id ? ' active' : ''}`}
+            onClick={() => onSetView(id)}
             title={collapsed ? label : undefined}
           >
             <Icon size={16} />
@@ -33,8 +31,8 @@ export default function Sidebar({ collapsed }) {
 
       <div className="sidebar-bottom">
         <button
-          className={`sidebar-item${active === 'settings' ? ' active' : ''}`}
-          onClick={() => setActive('settings')}
+          className={`sidebar-item${activeView === 'settings' ? ' active' : ''}`}
+          onClick={() => onSetView('settings')}
           title={collapsed ? 'Settings' : undefined}
         >
           <Settings size={16} />

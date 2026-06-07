@@ -4,10 +4,7 @@ import os
 import random
 from datetime import datetime, timedelta
 
-DB_PATH = os.environ.get(
-    'DB_PATH',
-    os.path.join(os.path.dirname(__file__), 'data', 'trading_journal.db')
-)
+DB_PATH = os.environ.get('DB_PATH', '/app/data/trading_journal.db')
 
 MOCK_INSTRUMENTS = [
     ('ES',  'E-mini S&P 500',          12.50, '#4f9cf9'),
@@ -129,6 +126,29 @@ def init_db():
     c.execute('SELECT COUNT(*) FROM trades')
     if c.fetchone()[0] == 0:
         _seed_sample_trades(c)
+
+    # Add journal columns to existing DBs (idempotent)
+    journal_cols = [
+        "ALTER TABLE trades ADD COLUMN strategy       TEXT    DEFAULT ''",
+        "ALTER TABLE trades ADD COLUMN plan           TEXT    DEFAULT ''",
+        "ALTER TABLE trades ADD COLUMN execution      TEXT    DEFAULT ''",
+        "ALTER TABLE trades ADD COLUMN emotion        TEXT    DEFAULT ''",
+        "ALTER TABLE trades ADD COLUMN entry_score    INTEGER DEFAULT 0",
+        "ALTER TABLE trades ADD COLUMN exit_score     INTEGER DEFAULT 0",
+        "ALTER TABLE trades ADD COLUMN risk_score     INTEGER DEFAULT 0",
+        "ALTER TABLE trades ADD COLUMN plan_adherence        INTEGER DEFAULT 0",
+        "ALTER TABLE trades ADD COLUMN lessons               TEXT    DEFAULT ''",
+        "ALTER TABLE trades ADD COLUMN plan_followed         TEXT    DEFAULT ''",
+        "ALTER TABLE trades ADD COLUMN biggest_mistake       TEXT    DEFAULT ''",
+        "ALTER TABLE trades ADD COLUMN would_do_differently  TEXT    DEFAULT ''",
+        "ALTER TABLE trades ADD COLUMN overall_rating        INTEGER DEFAULT 0",
+        "ALTER TABLE trades ADD COLUMN chart_link            TEXT    DEFAULT ''",
+    ]
+    for sql in journal_cols:
+        try:
+            c.execute(sql)
+        except Exception:
+            pass  # column already exists
 
     conn.commit()
     conn.close()
