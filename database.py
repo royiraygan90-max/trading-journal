@@ -85,6 +85,21 @@ def init_db():
             key   TEXT PRIMARY KEY,
             value TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS accounts (
+            id            TEXT PRIMARY KEY,
+            name          TEXT NOT NULL,
+            firm          TEXT DEFAULT '',
+            account_type  TEXT DEFAULT 'live',
+            status        TEXT DEFAULT 'active',
+            account_size  REAL,
+            risk_per_trade   REAL,
+            max_daily_loss   REAL,
+            max_weekly_loss  REAL,
+            color         TEXT DEFAULT '#4f9cf9',
+            sort_order    INTEGER DEFAULT 0,
+            created_at    TEXT DEFAULT (datetime('now'))
+        );
     ''')
 
     # Seed instruments
@@ -96,6 +111,17 @@ def init_db():
     c.execute('SELECT COUNT(*) FROM tags')
     if c.fetchone()[0] == 0:
         c.executemany('INSERT INTO tags VALUES (?,?,?)', MOCK_TAGS)
+
+    # Seed accounts
+    c.execute('SELECT COUNT(*) FROM accounts')
+    if c.fetchone()[0] == 0:
+        c.executemany(
+            'INSERT INTO accounts (id,name,firm,account_type,status,color,sort_order) VALUES (?,?,?,?,?,?,?)',
+            [
+                ('acc_mffu_live',      'MFFU Live',      'MFFU', 'live',      'active', '#2bd97c', 1),
+                ('acc_mffu_challenge', 'MFFU Challenge', 'MFFU', 'challenge', 'active', '#fb923c', 2),
+            ]
+        )
 
     # Seed checklist
     c.execute('SELECT COUNT(*) FROM checklist')
@@ -136,6 +162,7 @@ def init_db():
         "ALTER TABLE trades ADD COLUMN would_do_differently  TEXT    DEFAULT ''",
         "ALTER TABLE trades ADD COLUMN overall_rating        INTEGER DEFAULT 0",
         "ALTER TABLE trades ADD COLUMN chart_link            TEXT    DEFAULT ''",
+        "ALTER TABLE trades ADD COLUMN account_id            TEXT    DEFAULT NULL",
     ]
     for sql in journal_cols:
         try:
