@@ -10,6 +10,7 @@ import TradeDetail     from './components/TradeDetail.jsx'
 import Modals          from './components/Modals.jsx'
 import CustomizeDrawer from './components/CustomizeDrawer.jsx'
 import TagsPage        from './components/TagsPage.jsx'
+import AccountsPage    from './components/AccountsPage.jsx'
 import SettingsPage    from './components/SettingsPage.jsx'
 import { calculateStats, filterTrades, buildEquityData } from './utils.jsx'
 
@@ -42,17 +43,21 @@ function loadLayout() {
 
 export default function App() {
   // ── data state ─────────────────────────────────────────────────────────────
-  const [trades,      setTrades]      = useState([])
-  const [instruments, setInstruments] = useState([])
-  const [allTags,     setAllTags]     = useState([])
-  const [checklist,   setChecklist]   = useState([])
-  const [settings,    setSettings]    = useState({})
-  const [loading,     setLoading]     = useState(true)
-  const [error,       setError]       = useState(null)
+  const [trades,            setTrades]            = useState([])
+  const [instruments,       setInstruments]       = useState([])
+  const [allTags,           setAllTags]           = useState([])
+  const [accounts,          setAccounts]          = useState([])
+  const [checklist,         setChecklist]         = useState([])
+  const [settings,          setSettings]          = useState({})
+  const [loading,           setLoading]           = useState(true)
+  const [error,             setError]             = useState(null)
+  const [selectedAccountId, setSelectedAccountId] = useState(
+    () => localStorage.getItem('selected_account') || 'all'
+  )
 
   // ── ui state ───────────────────────────────────────────────────────────────
   const [selectedTrade,     setSelectedTrade]     = useState(null)
-  const [filters,           setFilters]           = useState({ dateFrom: '', dateTo: '', symbol: '', direction: '', outcome: '', tags: [] })
+  const [filters,           setFilters]           = useState({ dateFrom: '', dateTo: '', symbol: '', direction: '', outcome: '', tags: [], accountId: 'all' })
   const [showAddModal,      setShowAddModal]      = useState(false)
   const [editTrade,         setEditTrade]         = useState(null)
   const [showCustomize,     setShowCustomize]     = useState(false)
@@ -64,6 +69,10 @@ export default function App() {
   const [workingLayout,     setWorkingLayout]     = useState(loadLayout)
   const [isEditMode,        setIsEditMode]        = useState(false)
 
+  useEffect(() => {
+    localStorage.setItem('selected_account', selectedAccountId)
+  }, [selectedAccountId])
+
   // ── initial load ───────────────────────────────────────────────────────────
   useEffect(() => {
     Promise.all([
@@ -72,20 +81,25 @@ export default function App() {
       fetch('/api/tags').then(r => r.json()),
       fetch('/api/checklist').then(r => r.json()),
       fetch('/api/settings').then(r => r.json()),
+      fetch('/api/accounts').then(r => r.json()),
     ])
-      .then(([t, instr, tags, cl, sett]) => {
+      .then(([t, instr, tags, cl, sett, accs]) => {
         setTrades(t)
         setInstruments(instr)
         setAllTags(tags)
         setChecklist(cl)
         setSettings(sett)
+        setAccounts(accs)
         setLoading(false)
       })
       .catch(err => { setError(err.message); setLoading(false) })
   }, [])
 
   // ── computed ───────────────────────────────────────────────────────────────
-  const filteredTrades = useMemo(() => filterTrades(trades, filters), [trades, filters])
+  const filteredTrades = useMemo(
+    () => filterTrades(trades, { ...filters, accountId: selectedAccountId }),
+    [trades, filters, selectedAccountId]
+  )
 
   const sortedTrades = useMemo(() => {
     const arr = [...filteredTrades]
@@ -176,6 +190,35 @@ export default function App() {
     if (res.ok) refetchTags()
     return res
   }, [refetchTags])
+
+  const refetchAccounts = useCallback(async () => {
+    const r = await fetch('/api/accounts')
+    setAccounts(await r.json())
+  }, [])
+
+  const addAccount = useCallback(async (data) => {
+    await fetch('/api/accounts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    refetchAccounts()
+  }, [refetchAccounts])
+
+  const updateAccount = useCallback(async (id, data) => {
+    await fetch(`/api/accounts/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    refetchAccounts()
+  }, [refetchAccounts])
+
+  const deleteAccount = useCallback(async (id) => {
+    const res = await fetch(`/api/accounts/${id}`, { method: 'DELETE' })
+    if (res.ok) refetchAccounts()
+    return res
+  }, [refetchAccounts])
 
   const refetchChecklist = useCallback(async () => {
     const r = await fetch('/api/checklist')
@@ -274,6 +317,9 @@ export default function App() {
         filters={filters}
         setFilters={setFilters}
         instruments={instruments}
+        accounts={accounts}
+        selectedAccountId={selectedAccountId}
+        onSelectAccount={setSelectedAccountId}
         sidebarCollapsed={sidebarCollapsed}
         onToggleSidebar={() => setSidebarCollapsed(v => !v)}
         onAddTrade={() => setShowAddModal(true)}
@@ -316,6 +362,7 @@ export default function App() {
                 trades={sortedTrades}
                 allTags={allTags}
                 instruments={instruments}
+                accounts={accounts}
                 selectedTrade={selectedTrade}
                 onSelectTrade={setSelectedTrade}
                 onEditTrade={handleEditTrade}
@@ -345,6 +392,7 @@ export default function App() {
                 trades={sortedTrades}
                 allTags={allTags}
                 instruments={instruments}
+                accounts={accounts}
                 selectedTrade={selectedTrade}
                 onSelectTrade={setSelectedTrade}
                 onEditTrade={handleEditTrade}
@@ -403,6 +451,15 @@ export default function App() {
             />
           )}
 
+          {activeView === 'accounts' && (
+            <AccountsPage
+              accounts={accounts}
+              onAdd={addAccount}
+              onUpdate={updateAccount}
+              onDelete={deleteAccount}
+            />
+          )}
+
           {activeView === 'settings' && (
             <SettingsPage
               visibleWidgets={visibleWidgets}
@@ -418,6 +475,8 @@ export default function App() {
           trade={editTrade}
           instruments={instruments}
           allTags={allTags}
+          accounts={accounts}
+          selectedAccountId={selectedAccountId}
           onSave={handleSaveTrade}
           onClose={handleCloseModal}
         />
