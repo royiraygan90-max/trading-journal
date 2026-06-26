@@ -386,6 +386,16 @@ def delete_checklist_item(item_id):
     return jsonify({'ok': True})
 
 
+@app.route('/api/checklist/reset', methods=['POST'])
+def reset_checklist():
+    db = get_db()
+    db.execute('UPDATE checklist SET done=0')
+    db.commit()
+    rows = db.execute('SELECT * FROM checklist ORDER BY sort_order').fetchall()
+    db.close()
+    return jsonify([row_to_dict(r) for r in rows])
+
+
 # ── settings ─────────────────────────────────────────────────────────────────
 @app.route('/api/settings', methods=['GET'])
 def get_settings():

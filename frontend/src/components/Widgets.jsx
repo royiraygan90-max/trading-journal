@@ -6,7 +6,7 @@ import {
 } from 'recharts'
 import {
   BarChart2, PieChart as PieIcon, CheckSquare, CalendarDays,
-  Flame, ChevronLeft, ChevronRight, Check, Trash2, GripVertical,
+  Flame, ChevronLeft, ChevronRight, Check, Trash2, GripVertical, RotateCcw,
 } from 'lucide-react'
 import { buildDailyPnl, buildCalendarData, buildEquityData, fmt } from '../utils.jsx'
 import EquityChart from './EquityChart.jsx'
@@ -188,7 +188,7 @@ function StreakWidget({ trades }) {
 }
 
 // ── Checklist widget ──────────────────────────────────────────────────────────
-function ChecklistWidget({ checklist, onAdd, onUpdate, onDelete }) {
+function ChecklistWidget({ checklist, onAdd, onUpdate, onDelete, onReset }) {
   const [newText, setNewText] = useState('')
 
   function handleAdd() {
@@ -202,9 +202,20 @@ function ChecklistWidget({ checklist, onAdd, onUpdate, onDelete }) {
     <div className="card checklist-widget">
       <div className="card-header">
         <div className="card-title"><CheckSquare size={14} />Pre-Trade Checklist</div>
-        <span className="text-muted text-sm">
-          {checklist.filter(i => i.done).length}/{checklist.length}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="text-muted text-sm">
+            {checklist.filter(i => i.done).length}/{checklist.length}
+          </span>
+          {checklist.some(i => i.done) && (
+            <button
+              className="checklist-reset-btn"
+              title="Reset checklist"
+              onClick={onReset}
+            >
+              <RotateCcw size={12} />
+            </button>
+          )}
+        </div>
       </div>
       <div className="checklist-list">
         {checklist.map(item => (
@@ -325,7 +336,7 @@ const WIDGET_META = {
 export default function Widgets({
   visibleWidgets, widgetOrder,
   trades, checklist,
-  onAddChecklistItem, onUpdateChecklistItem, onDeleteChecklistItem,
+  onAddChecklistItem, onUpdateChecklistItem, onDeleteChecklistItem, onResetChecklist,
   layout, isEditMode, onLayoutChange,
 }) {
   const visibleIds = visibleWidgets.filter(id => WIDGET_META[id])
@@ -347,6 +358,7 @@ export default function Widgets({
                 onAdd={onAddChecklistItem}
                 onUpdate={onUpdateChecklistItem}
                 onDelete={onDeleteChecklistItem}
+                onReset={onResetChecklist}
               />
             </div>
           )
@@ -388,6 +400,7 @@ export default function Widgets({
                 onAdd={onAddChecklistItem}
                 onUpdate={onUpdateChecklistItem}
                 onDelete={onDeleteChecklistItem}
+                onReset={onResetChecklist}
               />
             </div>
           )

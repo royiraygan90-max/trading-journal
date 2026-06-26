@@ -248,6 +248,11 @@ export default function App() {
     setChecklist(prev => prev.filter(i => i.id !== id))
   }, [])
 
+  const resetChecklist = useCallback(async () => {
+    const r = await fetch('/api/checklist/reset', { method: 'POST' })
+    setChecklist(await r.json())
+  }, [])
+
   const toggleWidget = useCallback((id) => {
     const next = visibleWidgets.includes(id)
       ? visibleWidgets.filter(w => w !== id)
@@ -354,6 +359,7 @@ export default function App() {
                 onAddChecklistItem={addChecklistItem}
                 onUpdateChecklistItem={updateChecklistItem}
                 onDeleteChecklistItem={deleteChecklistItem}
+                onResetChecklist={resetChecklist}
                 layout={workingLayout}
                 isEditMode={isEditMode}
                 onLayoutChange={handleLayoutChange}
@@ -424,6 +430,7 @@ export default function App() {
               onAddChecklistItem={addChecklistItem}
               onUpdateChecklistItem={updateChecklistItem}
               onDeleteChecklistItem={deleteChecklistItem}
+              onResetChecklist={resetChecklist}
             />
           )}
 
@@ -438,6 +445,7 @@ export default function App() {
                 onAddChecklistItem={addChecklistItem}
                 onUpdateChecklistItem={updateChecklistItem}
                 onDeleteChecklistItem={deleteChecklistItem}
+                onResetChecklist={resetChecklist}
               />
             </>
           )}
