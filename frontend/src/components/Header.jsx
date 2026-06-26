@@ -11,12 +11,14 @@ const OUTCOMES   = [
 export default function Header({
   filters, setFilters,
   instruments,
+  accounts, selectedAccountId, onSelectAccount,
   sidebarCollapsed, onToggleSidebar,
   onAddTrade, onCustomize,
   isEditMode, onEditLayout, onSaveLayout, onCancelLayout,
 }) {
   const hasFilters = filters.dateFrom || filters.dateTo || filters.symbol
     || filters.direction || filters.outcome || filters.tags?.length
+    || (selectedAccountId && selectedAccountId !== 'all')
 
   function set(key, val) {
     setFilters(prev => ({ ...prev, [key]: val }))
@@ -24,6 +26,7 @@ export default function Header({
 
   function clearFilters() {
     setFilters({ dateFrom: '', dateTo: '', symbol: '', direction: '', outcome: '', tags: [] })
+    onSelectAccount('all')
   }
 
   return (
@@ -39,6 +42,22 @@ export default function Header({
         </div>
         {!sidebarCollapsed && <span className="logo-text">Trading Journal</span>}
       </button>
+
+      {/* Account switcher */}
+      {accounts && accounts.length > 0 && (
+        <div className="account-switcher">
+          <select
+            className="header-input account-select"
+            value={selectedAccountId}
+            onChange={e => onSelectAccount(e.target.value)}
+          >
+            <option value="all">All Accounts</option>
+            {accounts.map(acc => (
+              <option key={acc.id} value={acc.id}>{acc.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="header-filters">
