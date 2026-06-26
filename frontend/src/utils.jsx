@@ -197,6 +197,7 @@ export function filterTrades(trades, filters) {
       const tradeTags = parseTags(t.tags)
       if (!filters.tags.some(tag => tradeTags.includes(tag))) return false
     }
+    if (filters.accountId && filters.accountId !== 'all' && t.account_id !== filters.accountId) return false
     return true
   })
 }
