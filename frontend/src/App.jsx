@@ -253,6 +253,19 @@ export default function App() {
     setChecklist(await r.json())
   }, [])
 
+  const reorderChecklist = useCallback(async (newOrderedItems) => {
+    setChecklist(newOrderedItems)
+    await Promise.all(
+      newOrderedItems.map((item, i) =>
+        fetch(`/api/checklist/${item.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...item, sort_order: i }),
+        })
+      )
+    )
+  }, [])
+
   const toggleWidget = useCallback((id) => {
     const next = visibleWidgets.includes(id)
       ? visibleWidgets.filter(w => w !== id)
@@ -360,6 +373,7 @@ export default function App() {
                 onUpdateChecklistItem={updateChecklistItem}
                 onDeleteChecklistItem={deleteChecklistItem}
                 onResetChecklist={resetChecklist}
+                onReorderChecklist={reorderChecklist}
                 layout={workingLayout}
                 isEditMode={isEditMode}
                 onLayoutChange={handleLayoutChange}
@@ -446,6 +460,7 @@ export default function App() {
                 onUpdateChecklistItem={updateChecklistItem}
                 onDeleteChecklistItem={deleteChecklistItem}
                 onResetChecklist={resetChecklist}
+                onReorderChecklist={reorderChecklist}
               />
             </>
           )}

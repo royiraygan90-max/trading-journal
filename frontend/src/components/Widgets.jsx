@@ -188,14 +188,26 @@ function StreakWidget({ trades }) {
 }
 
 // ── Checklist widget ──────────────────────────────────────────────────────────
-function ChecklistWidget({ checklist, onAdd, onUpdate, onDelete, onReset }) {
-  const [newText, setNewText] = useState('')
+function ChecklistWidget({ checklist, onAdd, onUpdate, onDelete, onReset, onReorder }) {
+  const [newText,      setNewText]      = useState('')
+  const [draggedId,    setDraggedId]    = useState(null)
+  const [dragOverInfo, setDragOverInfo] = useState(null) // { id, position: 'above' | 'below' }
 
   function handleAdd() {
     const t = newText.trim()
     if (!t) return
     onAdd(t)
     setNewText('')
+  }
+
+  function performReorder(fromId, toId, position) {
+    const items    = [...checklist]
+    const fromIdx  = items.findIndex(i => i.id === fromId)
+    const [dragged] = items.splice(fromIdx, 1)
+    const toIdx    = items.findIndex(i => i.id === toId)
+    const insertAt = position === 'above' ? toIdx : toIdx + 1
+    items.splice(insertAt, 0, dragged)
+    onReorder(items)
   }
 
   return (
@@ -219,7 +231,38 @@ function ChecklistWidget({ checklist, onAdd, onUpdate, onDelete, onReset }) {
       </div>
       <div className="checklist-list">
         {checklist.map(item => (
-          <div key={item.id} className="checklist-item">
+          <div
+            key={item.id}
+            className="checklist-item"
+            draggable
+            style={{ opacity: item.id === draggedId ? 0.4 : 1 }}
+            onDragStart={e => {
+              if (!e.target.closest('.checklist-drag-handle')) { e.preventDefault(); return }
+              setDraggedId(item.id)
+              e.dataTransfer.effectAllowed = 'move'
+            }}
+            onDragOver={e => {
+              e.preventDefault()
+              if (item.id === draggedId) return
+              const rect     = e.currentTarget.getBoundingClientRect()
+              const position = (e.clientY - rect.top) < rect.height / 2 ? 'above' : 'below'
+              setDragOverInfo({ id: item.id, position })
+            }}
+            onDragLeave={() => setDragOverInfo(prev => prev?.id === item.id ? null : prev)}
+            onDrop={e => {
+              e.preventDefault()
+              if (draggedId == null || draggedId === item.id) {
+                setDraggedId(null); setDragOverInfo(null); return
+              }
+              performReorder(draggedId, item.id, dragOverInfo?.position || 'above')
+              setDraggedId(null); setDragOverInfo(null)
+            }}
+            onDragEnd={() => { setDraggedId(null); setDragOverInfo(null) }}
+          >
+            {dragOverInfo?.id === item.id && dragOverInfo.position === 'above' && (
+              <div className="checklist-insert-line above" />
+            )}
+            <span className="checklist-drag-handle"><GripVertical size={12} /></span>
             <button
               className={`checklist-checkbox${item.done ? ' checked' : ''}`}
               onClick={() => onUpdate(item.id, { ...item, done: item.done ? 0 : 1 })}
@@ -230,6 +273,9 @@ function ChecklistWidget({ checklist, onAdd, onUpdate, onDelete, onReset }) {
             <button className="checklist-delete" onClick={() => onDelete(item.id)}>
               <Trash2 size={12} />
             </button>
+            {dragOverInfo?.id === item.id && dragOverInfo.position === 'below' && (
+              <div className="checklist-insert-line below" />
+            )}
           </div>
         ))}
       </div>
@@ -336,7 +382,7 @@ const WIDGET_META = {
 export default function Widgets({
   visibleWidgets, widgetOrder,
   trades, checklist,
-  onAddChecklistItem, onUpdateChecklistItem, onDeleteChecklistItem, onResetChecklist,
+  onAddChecklistItem, onUpdateChecklistItem, onDeleteChecklistItem, onResetChecklist, onReorderChecklist,
   layout, isEditMode, onLayoutChange,
 }) {
   const visibleIds = visibleWidgets.filter(id => WIDGET_META[id])
@@ -359,6 +405,7 @@ export default function Widgets({
                 onUpdate={onUpdateChecklistItem}
                 onDelete={onDeleteChecklistItem}
                 onReset={onResetChecklist}
+                onReorder={onReorderChecklist}
               />
             </div>
           )
@@ -401,6 +448,7 @@ export default function Widgets({
                 onUpdate={onUpdateChecklistItem}
                 onDelete={onDeleteChecklistItem}
                 onReset={onResetChecklist}
+                onReorder={onReorderChecklist}
               />
             </div>
           )
