@@ -5,6 +5,7 @@ import { fmt, parseTags } from '../utils.jsx'
 const COLUMNS = [
   { key: 'datetime',   label: 'Date / Time',  sortable: true },
   { key: 'symbol',     label: 'Symbol',       sortable: true },
+  { key: 'account',    label: 'Account',      sortable: false },
   { key: 'direction',  label: 'Dir',          sortable: true },
   { key: 'entry',      label: 'Entry',        sortable: true },
   { key: 'exit',       label: 'Exit',         sortable: true },
@@ -29,7 +30,7 @@ function SortIcon({ col, sort }) {
 }
 
 export default function TradesTable({
-  trades, allTags, instruments,
+  trades, allTags, instruments, accounts,
   selectedTrade, onSelectTrade,
   onEditTrade, onDeleteTrade,
   sort, setSort,
@@ -43,6 +44,10 @@ export default function TradesTable({
 
   function getTagMeta(tagId) {
     return allTags.find(t => t.id === tagId)
+  }
+
+  function getAccountMeta(accountId) {
+    return accounts?.find(a => a.id === accountId)
   }
 
   function confirmDelete(e, trade) {
@@ -103,6 +108,24 @@ export default function TradesTable({
                 >
                   <td className="td-date">{fmt.datetime(trade.datetime)}</td>
                   <td className="td-symbol">{trade.symbol}</td>
+                  <td>
+                    {(() => {
+                      const acc = getAccountMeta(trade.account_id)
+                      if (!acc) return <span style={{ color: 'var(--text-2)' }}>—</span>
+                      return (
+                        <span
+                          className="tag-pill"
+                          style={{
+                            background: acc.color + '22',
+                            color: acc.color,
+                            border: `1px solid ${acc.color}44`,
+                          }}
+                        >
+                          {acc.name}
+                        </span>
+                      )
+                    })()}
+                  </td>
                   <td>
                     <span className={`dir-badge ${isLong ? 'long' : 'short'}`}>
                       {trade.direction}
