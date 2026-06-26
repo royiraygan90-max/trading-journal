@@ -1,7 +1,7 @@
 import React from 'react'
 import {
   LayoutDashboard, List, CalendarDays, BarChart2,
-  Tag, Settings, Wallet,
+  Tag, Settings, Wallet, Briefcase,
 } from 'lucide-react'
 
 const NAV = [
@@ -11,6 +11,7 @@ const NAV = [
   { id: 'analytics', label: 'Analytics',  icon: BarChart2 },
   { id: 'tags',      label: 'Tags',       icon: Tag },
   { id: 'accounts',  label: 'Accounts',   icon: Wallet },
+  { id: 'business',  label: 'Business',   icon: Briefcase },
 ]
 
 export default function Sidebar({ collapsed, activeView, onSetView }) {

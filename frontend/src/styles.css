@@ -2463,3 +2463,66 @@ tr:hover .row-actions { opacity: 1; }
 .header-input.account-select {
   min-width: 140px;
 }
+
+/* ── Business Expenses page ──────────────────────────────────────────────── */
+.expense-summary-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.expense-summary-row .stat-card { min-width: 160px; }
+.expense-summary-row .expense-cat-card { flex: 1; min-width: 260px; }
+
+.expense-cat-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.75rem;
+}
+.expense-cat-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.expense-cat-name {
+  color: var(--text-1);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.expense-cat-total {
+  color: var(--text-0);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.expense-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--text-1);
+  cursor: pointer;
+}
+
+.receipt-drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+.receipt-drop-zone:hover,
+.receipt-drop-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--bg-3);
+}

@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import uuid
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -505,6 +506,148 @@ def delete_trade_image(trade_id, filename):
 def serve_trade_image(trade_id, filename):
     filename = os.path.basename(filename)
     folder = os.path.join(IMAGES_DIR, str(trade_id))
+    return send_from_directory(folder, filename)
+
+
+# ── business expenses ────────────────────────────────────────────────────────
+@app.route('/api/expenses', methods=['GET'])
+def get_expenses():
+    db   = get_db()
+    rows = db.execute('SELECT * FROM business_expenses ORDER BY date DESC').fetchall()
+    db.close()
+    return jsonify([row_to_dict(r) for r in rows])
+
+
+@app.route('/api/expenses', methods=['POST'])
+def add_expense():
+    data   = request.get_json()
+    exp_id = 'exp_' + uuid.uuid4().hex[:8]
+    db     = get_db()
+    db.execute(
+        '''INSERT INTO business_expenses
+               (id, date, category, vendor, amount, currency, account_id, recurring, notes)
+           VALUES (:id,:date,:category,:vendor,:amount,:currency,:account_id,:recurring,:notes)''',
+        {
+            'id':         exp_id,
+            'date':       data.get('date', ''),
+            'category':   data.get('category', 'Other'),
+            'vendor':     data.get('vendor', ''),
+            'amount':     float(data.get('amount', 0)),
+            'currency':   data.get('currency', 'USD'),
+            'account_id': data.get('account_id'),
+            'recurring':  int(data.get('recurring', 0)),
+            'notes':      data.get('notes', ''),
+        }
+    )
+    db.commit()
+    row = db.execute('SELECT * FROM business_expenses WHERE id=?', (exp_id,)).fetchone()
+    db.close()
+    return jsonify(row_to_dict(row)), 201
+
+
+@app.route('/api/expenses/<exp_id>', methods=['PUT'])
+def update_expense(exp_id):
+    data = request.get_json()
+    db   = get_db()
+    db.execute(
+        '''UPDATE business_expenses SET
+               date=:date, category=:category, vendor=:vendor,
+               amount=:amount, currency=:currency, account_id=:account_id,
+               recurring=:recurring, notes=:notes
+           WHERE id=:id''',
+        {
+            'id':         exp_id,
+            'date':       data.get('date', ''),
+            'category':   data.get('category', 'Other'),
+            'vendor':     data.get('vendor', ''),
+            'amount':     float(data.get('amount', 0)),
+            'currency':   data.get('currency', 'USD'),
+            'account_id': data.get('account_id'),
+            'recurring':  int(data.get('recurring', 0)),
+            'notes':      data.get('notes', ''),
+        }
+    )
+    db.commit()
+    row = db.execute('SELECT * FROM business_expenses WHERE id=?', (exp_id,)).fetchone()
+    db.close()
+    if row is None:
+        return jsonify({'error': 'Not found'}), 404
+    return jsonify(row_to_dict(row))
+
+
+@app.route('/api/expenses/<exp_id>', methods=['DELETE'])
+def delete_expense(exp_id):
+    folder = os.path.join(IMAGES_DIR, 'expenses', exp_id)
+    shutil.rmtree(folder, ignore_errors=True)
+    db = get_db()
+    db.execute('DELETE FROM business_expenses WHERE id=?', (exp_id,))
+    db.commit()
+    db.close()
+    return jsonify({'ok': True})
+
+
+# ── expense receipt images ────────────────────────────────────────────────────
+@app.route('/api/expenses/<exp_id>/images', methods=['GET'])
+def get_expense_images(exp_id):
+    folder = os.path.join(IMAGES_DIR, 'expenses', exp_id)
+    if not os.path.exists(folder):
+        return jsonify([])
+    files = sorted(
+        f for f in os.listdir(folder)
+        if os.path.splitext(f)[1].lower() in ALLOWED_EXTENSIONS
+    )
+    return jsonify([f'/api/expense-images/{exp_id}/{f}' for f in files])
+
+
+@app.route('/api/expenses/<exp_id>/images', methods=['POST'])
+def upload_expense_images(exp_id):
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    files  = request.files.getlist('file')
+    folder = os.path.join(IMAGES_DIR, 'expenses', exp_id)
+    os.makedirs(folder, exist_ok=True)
+    saved  = []
+    for f in files:
+        raw = secure_filename(f.filename or '')
+        if not raw:
+            continue
+        base, ext = os.path.splitext(raw)
+        if ext.lower() not in ALLOWED_EXTENSIONS:
+            continue
+        unique = f"{base}_{uuid.uuid4().hex[:6]}{ext}"
+        f.save(os.path.join(folder, unique))
+        saved.append(f'/api/expense-images/{exp_id}/{unique}')
+    if saved:
+        db = get_db()
+        db.execute('UPDATE business_expenses SET has_receipt=1 WHERE id=?', (exp_id,))
+        db.commit()
+        db.close()
+    return jsonify(saved), 201
+
+
+@app.route('/api/expenses/<exp_id>/images/<filename>', methods=['DELETE'])
+def delete_expense_image(exp_id, filename):
+    filename = os.path.basename(filename)
+    folder   = os.path.join(IMAGES_DIR, 'expenses', exp_id)
+    path     = os.path.join(folder, filename)
+    if os.path.exists(path):
+        os.remove(path)
+    remaining = [
+        f for f in os.listdir(folder)
+        if os.path.splitext(f)[1].lower() in ALLOWED_EXTENSIONS
+    ] if os.path.exists(folder) else []
+    if not remaining:
+        db = get_db()
+        db.execute('UPDATE business_expenses SET has_receipt=0 WHERE id=?', (exp_id,))
+        db.commit()
+        db.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/expense-images/<exp_id>/<filename>')
+def serve_expense_image(exp_id, filename):
+    filename = os.path.basename(filename)
+    folder   = os.path.join(IMAGES_DIR, 'expenses', exp_id)
     return send_from_directory(folder, filename)
 
 

@@ -100,6 +100,20 @@ def init_db():
             sort_order    INTEGER DEFAULT 0,
             created_at    TEXT DEFAULT (datetime('now'))
         );
+
+        CREATE TABLE IF NOT EXISTS business_expenses (
+            id          TEXT PRIMARY KEY,
+            date        TEXT NOT NULL,
+            category    TEXT NOT NULL DEFAULT 'Other',
+            vendor      TEXT DEFAULT '',
+            amount      REAL NOT NULL,
+            currency    TEXT DEFAULT 'USD',
+            account_id  TEXT,
+            recurring   INTEGER DEFAULT 0,
+            notes       TEXT DEFAULT '',
+            has_receipt INTEGER DEFAULT 0,
+            created_at  TEXT DEFAULT (datetime('now'))
+        );
     ''')
 
     # Seed instruments

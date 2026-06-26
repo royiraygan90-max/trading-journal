@@ -11,6 +11,7 @@ import Modals          from './components/Modals.jsx'
 import CustomizeDrawer from './components/CustomizeDrawer.jsx'
 import TagsPage        from './components/TagsPage.jsx'
 import AccountsPage    from './components/AccountsPage.jsx'
+import BusinessPage    from './components/BusinessPage.jsx'
 import SettingsPage    from './components/SettingsPage.jsx'
 import { calculateStats, filterTrades, buildEquityData } from './utils.jsx'
 
@@ -48,6 +49,7 @@ export default function App() {
   const [allTags,           setAllTags]           = useState([])
   const [accounts,          setAccounts]          = useState([])
   const [checklist,         setChecklist]         = useState([])
+  const [expenses,          setExpenses]          = useState([])
   const [settings,          setSettings]          = useState({})
   const [loading,           setLoading]           = useState(true)
   const [error,             setError]             = useState(null)
@@ -82,14 +84,16 @@ export default function App() {
       fetch('/api/checklist').then(r => r.json()),
       fetch('/api/settings').then(r => r.json()),
       fetch('/api/accounts').then(r => r.json()),
+      fetch('/api/expenses').then(r => r.json()),
     ])
-      .then(([t, instr, tags, cl, sett, accs]) => {
+      .then(([t, instr, tags, cl, sett, accs, exps]) => {
         setTrades(t)
         setInstruments(instr)
         setAllTags(tags)
         setChecklist(cl)
         setSettings(sett)
         setAccounts(accs)
+        setExpenses(exps)
         setLoading(false)
       })
       .catch(err => { setError(err.message); setLoading(false) })
@@ -219,6 +223,32 @@ export default function App() {
     if (res.ok) refetchAccounts()
     return res
   }, [refetchAccounts])
+
+  const addExpense = useCallback(async (data) => {
+    const r   = await fetch('/api/expenses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    const newExp = await r.json()
+    setExpenses(prev => [newExp, ...prev])
+    return newExp
+  }, [])
+
+  const updateExpense = useCallback(async (id, data) => {
+    const r      = await fetch(`/api/expenses/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    const updated = await r.json()
+    setExpenses(prev => prev.map(e => e.id === id ? updated : e))
+  }, [])
+
+  const deleteExpense = useCallback(async (id) => {
+    await fetch(`/api/expenses/${id}`, { method: 'DELETE' })
+    setExpenses(prev => prev.filter(e => e.id !== id))
+  }, [])
 
   const refetchChecklist = useCallback(async () => {
     const r = await fetch('/api/checklist')
@@ -480,6 +510,16 @@ export default function App() {
               onAdd={addAccount}
               onUpdate={updateAccount}
               onDelete={deleteAccount}
+            />
+          )}
+
+          {activeView === 'business' && (
+            <BusinessPage
+              expenses={expenses}
+              accounts={accounts}
+              onAdd={addExpense}
+              onUpdate={updateExpense}
+              onDelete={deleteExpense}
             />
           )}
 
