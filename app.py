@@ -56,12 +56,14 @@ def add_trade():
              ticks, r_multiple, pnl, commission, notes, tags, has_screenshot,
              strategy, plan, execution, emotion,
              entry_score, exit_score, risk_score, plan_adherence, lessons,
-             plan_followed, biggest_mistake, would_do_differently, overall_rating, chart_link)
+             plan_followed, biggest_mistake, would_do_differently, overall_rating,
+             chart_link, account_id)
         VALUES (:datetime,:symbol,:direction,:entry,:exit,:quantity,
                 :ticks,:r_multiple,:pnl,:commission,:notes,:tags,:has_screenshot,
                 :strategy,:plan,:execution,:emotion,
                 :entry_score,:exit_score,:risk_score,:plan_adherence,:lessons,
-                :plan_followed,:biggest_mistake,:would_do_differently,:overall_rating,:chart_link)
+                :plan_followed,:biggest_mistake,:would_do_differently,:overall_rating,
+                :chart_link,:account_id)
     ''', {
         'datetime':             data.get('datetime', ''),
         'symbol':               data.get('symbol', ''),
@@ -90,6 +92,7 @@ def add_trade():
         'would_do_differently': data.get('would_do_differently', ''),
         'overall_rating':       int(data.get('overall_rating', 0)),
         'chart_link':           data.get('chart_link', ''),
+        'account_id':           data.get('account_id'),
     })
     db.commit()
     trade_id = db.execute('SELECT last_insert_rowid()').fetchone()[0]
@@ -114,7 +117,7 @@ def update_trade(trade_id):
             risk_score=:risk_score, plan_adherence=:plan_adherence, lessons=:lessons,
             plan_followed=:plan_followed, biggest_mistake=:biggest_mistake,
             would_do_differently=:would_do_differently, overall_rating=:overall_rating,
-            chart_link=:chart_link
+            chart_link=:chart_link, account_id=:account_id
         WHERE id=:id
     ''', {
         'id':                   trade_id,
@@ -145,6 +148,7 @@ def update_trade(trade_id):
         'would_do_differently': data.get('would_do_differently', ''),
         'overall_rating':       int(data.get('overall_rating') or 0),
         'chart_link':           data.get('chart_link', ''),
+        'account_id':           data.get('account_id'),
     })
     db.commit()
     row = db.execute('SELECT * FROM trades WHERE id=?', (trade_id,)).fetchone()
@@ -232,6 +236,94 @@ def delete_tag(tag_id):
         except Exception:
             pass
     db.execute('DELETE FROM tags WHERE id=?', (tag_id,))
+    db.commit()
+    db.close()
+    return jsonify({'ok': True})
+
+
+# ── accounts ──────────────────────────────────────────────────────────────────
+@app.route('/api/accounts', methods=['GET'])
+def get_accounts():
+    db   = get_db()
+    rows = db.execute('SELECT * FROM accounts ORDER BY sort_order').fetchall()
+    db.close()
+    return jsonify([row_to_dict(r) for r in rows])
+
+
+@app.route('/api/accounts', methods=['POST'])
+def add_account():
+    data = request.get_json()
+    acc_id = 'acc_' + uuid.uuid4().hex[:8]
+    db = get_db()
+    db.execute(
+        '''INSERT INTO accounts
+               (id, name, firm, account_type, status, account_size,
+                risk_per_trade, max_daily_loss, max_weekly_loss, color, sort_order)
+           VALUES (:id,:name,:firm,:account_type,:status,:account_size,
+                   :risk_per_trade,:max_daily_loss,:max_weekly_loss,:color,:sort_order)''',
+        {
+            'id':              acc_id,
+            'name':            data.get('name', ''),
+            'firm':            data.get('firm', ''),
+            'account_type':    data.get('account_type', 'live'),
+            'status':          data.get('status', 'active'),
+            'account_size':    data.get('account_size'),
+            'risk_per_trade':  data.get('risk_per_trade'),
+            'max_daily_loss':  data.get('max_daily_loss'),
+            'max_weekly_loss': data.get('max_weekly_loss'),
+            'color':           data.get('color', '#4f9cf9'),
+            'sort_order':      data.get('sort_order', 0),
+        }
+    )
+    db.commit()
+    row = db.execute('SELECT * FROM accounts WHERE id=?', (acc_id,)).fetchone()
+    db.close()
+    return jsonify(row_to_dict(row)), 201
+
+
+@app.route('/api/accounts/<acc_id>', methods=['PUT'])
+def update_account(acc_id):
+    data = request.get_json()
+    db = get_db()
+    db.execute(
+        '''UPDATE accounts SET
+               name=:name, firm=:firm, account_type=:account_type, status=:status,
+               account_size=:account_size, risk_per_trade=:risk_per_trade,
+               max_daily_loss=:max_daily_loss, max_weekly_loss=:max_weekly_loss,
+               color=:color, sort_order=:sort_order
+           WHERE id=:id''',
+        {
+            'id':              acc_id,
+            'name':            data.get('name', ''),
+            'firm':            data.get('firm', ''),
+            'account_type':    data.get('account_type', 'live'),
+            'status':          data.get('status', 'active'),
+            'account_size':    data.get('account_size'),
+            'risk_per_trade':  data.get('risk_per_trade'),
+            'max_daily_loss':  data.get('max_daily_loss'),
+            'max_weekly_loss': data.get('max_weekly_loss'),
+            'color':           data.get('color', '#4f9cf9'),
+            'sort_order':      data.get('sort_order', 0),
+        }
+    )
+    db.commit()
+    row = db.execute('SELECT * FROM accounts WHERE id=?', (acc_id,)).fetchone()
+    db.close()
+    if row is None:
+        return jsonify({'error': 'Not found'}), 404
+    return jsonify(row_to_dict(row))
+
+
+@app.route('/api/accounts/<acc_id>', methods=['DELETE'])
+def delete_account(acc_id):
+    db = get_db()
+    count = db.execute(
+        'SELECT COUNT(*) FROM trades WHERE account_id=?', (acc_id,)
+    ).fetchone()[0]
+    if count > 0:
+        db.close()
+        return jsonify({'error': 'Account has trades assigned to it'}), 409
+    db.execute('DELETE FROM accounts WHERE id=?', (acc_id,))
     db.commit()
     db.close()
     return jsonify({'ok': True})
