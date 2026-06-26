@@ -3,18 +3,19 @@ import { X, Plus, Edit2 } from 'lucide-react'
 import { parseTags, fmt } from '../utils.jsx'
 
 const DEFAULT_FORM = {
-  datetime:  '',
-  symbol:    'ES',
-  direction: 'Long',
-  entry:     '',
-  exit:      '',
-  quantity:  1,
+  datetime:   '',
+  symbol:     'ES',
+  direction:  'Long',
+  entry:      '',
+  exit:       '',
+  quantity:   1,
   commission: '',
-  notes:     '',
-  tags:      [],
+  notes:      '',
+  tags:       [],
+  account_id: '',
 }
 
-export default function Modals({ mode, trade, instruments, allTags, onSave, onClose }) {
+export default function Modals({ mode, trade, instruments, allTags, accounts, selectedAccountId, onSave, onClose }) {
   const [form, setForm] = useState(DEFAULT_FORM)
 
   // Populate form when editing
@@ -30,11 +31,16 @@ export default function Modals({ mode, trade, instruments, allTags, onSave, onCl
         commission: trade.commission ?? '',
         notes:      trade.notes || '',
         tags:       parseTags(trade.tags),
+        account_id: trade.account_id || '',
       })
     } else {
       const now = new Date()
       const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-      setForm({ ...DEFAULT_FORM, datetime: local.toISOString().slice(0, 16) })
+      const lastUsed = localStorage.getItem('last_used_account_id') || ''
+      const defaultAcc = (selectedAccountId && selectedAccountId !== 'all')
+        ? selectedAccountId
+        : lastUsed
+      setForm({ ...DEFAULT_FORM, datetime: local.toISOString().slice(0, 16), account_id: defaultAcc })
     }
   }, [mode, trade])
 
@@ -79,6 +85,15 @@ export default function Modals({ mode, trade, instruments, allTags, onSave, onCl
       alert('Please fill in all required fields (Date/Time, Entry, Exit).')
       return
     }
+    if (accounts && accounts.length === 0) {
+      alert('Create an account first from the Accounts page.')
+      return
+    }
+    if (!form.account_id) {
+      alert('Please select an account.')
+      return
+    }
+    localStorage.setItem('last_used_account_id', form.account_id)
     onSave({
       ...form,
       entry:      parseFloat(form.entry),
@@ -89,6 +104,7 @@ export default function Modals({ mode, trade, instruments, allTags, onSave, onCl
       ticks:      ticks ?? null,
       r_multiple: r ?? null,
       tags:       JSON.stringify(form.tags),
+      account_id: form.account_id || null,
     })
   }
 
@@ -130,6 +146,24 @@ export default function Modals({ mode, trade, instruments, allTags, onSave, onCl
                 </select>
               </div>
             </div>
+
+            {/* Account */}
+            {accounts && accounts.length > 0 && (
+              <div className="form-group" style={{ marginTop: 14 }}>
+                <label className="form-label">Account *</label>
+                <select
+                  className="form-select"
+                  value={form.account_id}
+                  onChange={e => set('account_id', e.target.value)}
+                  required
+                >
+                  <option value="">— Select account —</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.id}>{acc.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Direction */}
             <div className="form-group" style={{ marginTop: 14 }}>
