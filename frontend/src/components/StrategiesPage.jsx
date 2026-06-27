@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { fmt } from '../utils.jsx'
+import { Lightbox } from './TradeDetail.jsx'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const OUTCOMES = [
@@ -390,10 +391,11 @@ function ObsModal({ mode, obs, strategies, trades, defaultStratId, onSave, onClo
 
 // ── Observation screenshot modal ──────────────────────────────────────────────
 function ObsReceiptModal({ obsId, intro, onDone, onChanged }) {
-  const fileRef               = useRef(null)
-  const [uploading, setUploading] = useState(false)
-  const [uploaded,  setUploaded]  = useState([])
-  const [dragOver,  setDragOver]  = useState(false)
+  const fileRef                   = useRef(null)
+  const [uploading,   setUploading]   = useState(false)
+  const [uploaded,    setUploaded]    = useState([])
+  const [dragOver,    setDragOver]    = useState(false)
+  const [lightboxIdx, setLightboxIdx] = useState(null)
 
   useEffect(() => {
     fetch(`/api/observations/${obsId}/images`)
@@ -446,10 +448,10 @@ function ObsReceiptModal({ obsId, intro, onDone, onChanged }) {
           </div>
           {uploaded.length > 0 && (
             <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {uploaded.map(url => (
-                <div key={url} className="strat-image-thumb">
+              {uploaded.map((url, i) => (
+                <div key={url} className="strat-image-thumb" onClick={() => setLightboxIdx(i)} style={{ cursor: 'zoom-in' }}>
                   <img src={url} alt="screenshot" />
-                  <button className="strat-image-delete" onClick={() => deleteImage(url)} title="Remove">
+                  <button className="strat-image-delete" onClick={e => { e.stopPropagation(); deleteImage(url) }} title="Remove">
                     <X size={10} />
                   </button>
                 </div>
@@ -464,16 +466,25 @@ function ObsReceiptModal({ obsId, intro, onDone, onChanged }) {
           <button className="btn btn-primary" onClick={onDone}><Check size={13} /> Done</button>
         </div>
       </div>
+      {lightboxIdx !== null && (
+        <Lightbox
+          images={uploaded}
+          idx={lightboxIdx}
+          onClose={() => setLightboxIdx(null)}
+          onNav={setLightboxIdx}
+        />
+      )}
     </div>
   )
 }
 
 // ── Strategy Card ─────────────────────────────────────────────────────────────
 function StrategyCard({ strat, variants, observations, onEdit, onDelete, onAddVariant, onAddObs }) {
-  const [expanded,  setExpanded]  = useState(false)
-  const [images,    setImages]    = useState(null)
-  const [dragOver,  setDragOver]  = useState(false)
-  const [uploading, setUploading] = useState(false)
+  const [expanded,    setExpanded]    = useState(false)
+  const [images,      setImages]      = useState(null)
+  const [dragOver,    setDragOver]    = useState(false)
+  const [uploading,   setUploading]   = useState(false)
+  const [lightboxIdx, setLightboxIdx] = useState(null)
   const fileRef = useRef(null)
 
   useEffect(() => {
@@ -548,15 +559,23 @@ function StrategyCard({ strat, variants, observations, onEdit, onDelete, onAddVa
             <div className="form-label" style={{ marginBottom: 6 }}>Reference Images</div>
             {images && images.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-                {images.map(url => (
-                  <div key={url} className="strat-image-thumb">
+                {images.map((url, i) => (
+                  <div key={url} className="strat-image-thumb" onClick={() => setLightboxIdx(i)} style={{ cursor: 'zoom-in' }}>
                     <img src={url} alt="reference" />
-                    <button className="strat-image-delete" onClick={() => deleteImage(url)} title="Remove">
+                    <button className="strat-image-delete" onClick={e => { e.stopPropagation(); deleteImage(url) }} title="Remove">
                       <X size={10} />
                     </button>
                   </div>
                 ))}
               </div>
+            )}
+            {lightboxIdx !== null && images && (
+              <Lightbox
+                images={images}
+                idx={lightboxIdx}
+                onClose={() => setLightboxIdx(null)}
+                onNav={setLightboxIdx}
+              />
             )}
             <div
               className={`receipt-drop-zone${dragOver ? ' drag-over' : ''}`}

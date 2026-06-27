@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { fmt, parseTags } from '../utils.jsx'
 
-function Lightbox({ images, idx, onClose, onNav }) {
+export function Lightbox({ images, idx, onClose, onNav }) {
   useEffect(() => {
     function onKey(e) {
       if (e.key === 'Escape') onClose()
