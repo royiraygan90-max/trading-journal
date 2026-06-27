@@ -2526,3 +2526,248 @@ tr:hover .row-actions { opacity: 1; }
   border-color: var(--accent);
   background: var(--bg-3);
 }
+
+/* ── Strategies page ─────────────────────────────────────────────────────── */
+.strat-tab-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+
+.strat-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-2);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition);
+}
+.strat-tab-btn:hover  { color: var(--text-0); }
+.strat-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.strat-tab-count {
+  background: var(--bg-4);
+  color: var(--text-2);
+  border-radius: 10px;
+  font-size: 0.68rem;
+  padding: 1px 6px;
+  font-weight: 600;
+}
+
+.strat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.strat-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color var(--transition);
+}
+.strat-card:hover { border-color: var(--border-bright); }
+
+.strat-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.strat-card-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.strat-card-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-0);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.strat-obs-count {
+  font-size: 0.72rem;
+  color: var(--text-2);
+  background: var(--bg-3);
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+
+.strat-card-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.strat-card:hover .strat-card-actions { opacity: 1; }
+
+.strat-card-body {
+  border-top: 1px solid var(--border);
+  padding: 16px;
+}
+
+.strat-description {
+  font-size: 0.82rem;
+  color: var(--text-1);
+  line-height: 1.55;
+  margin-bottom: 14px;
+  white-space: pre-wrap;
+}
+
+.strat-image-thumb {
+  position: relative;
+  width: 80px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.strat-image-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.strat-image-delete {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.strat-image-thumb:hover .strat-image-delete { opacity: 1; }
+
+.strat-summary-block {
+  display: flex;
+  gap: 20px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.strat-summary-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  flex: 1;
+}
+
+.strat-stat-item {
+  background: var(--bg-3);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  min-width: 64px;
+  text-align: center;
+}
+
+.strat-dow-chart {
+  width: 240px;
+  flex-shrink: 0;
+}
+
+.strat-comp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.strat-comp-table th {
+  text-align: left;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-2);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.strat-comp-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.strat-comp-table tr:last-child td { border-bottom: none; }
+.strat-comp-table tr:hover td { background: var(--bg-3); }
+
+/* ── Segmented control ────────────────────────────────────────────────────── */
+.seg-ctrl {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.seg-btn {
+  flex: 1;
+  min-width: 80px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.seg-btn:hover  { color: var(--text-0); border-color: var(--border-bright); }
+.seg-btn.active { font-weight: 600; }
+
+/* ── Observation trade picker ─────────────────────────────────────────────── */
+.obs-trade-picker {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-2);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  z-index: 200;
+  overflow: hidden;
+}
+
+.obs-trade-option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  gap: 4px;
+  text-align: left;
+  transition: background var(--transition);
+}
+.obs-trade-option:hover { background: var(--bg-3); }

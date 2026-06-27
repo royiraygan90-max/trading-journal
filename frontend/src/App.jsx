@@ -12,6 +12,7 @@ import CustomizeDrawer from './components/CustomizeDrawer.jsx'
 import TagsPage        from './components/TagsPage.jsx'
 import AccountsPage    from './components/AccountsPage.jsx'
 import BusinessPage    from './components/BusinessPage.jsx'
+import StrategiesPage  from './components/StrategiesPage.jsx'
 import SettingsPage    from './components/SettingsPage.jsx'
 import { calculateStats, filterTrades, buildEquityData } from './utils.jsx'
 
@@ -50,6 +51,8 @@ export default function App() {
   const [accounts,          setAccounts]          = useState([])
   const [checklist,         setChecklist]         = useState([])
   const [expenses,          setExpenses]          = useState([])
+  const [strategies,        setStrategies]        = useState([])
+  const [observations,      setObservations]      = useState([])
   const [settings,          setSettings]          = useState({})
   const [loading,           setLoading]           = useState(true)
   const [error,             setError]             = useState(null)
@@ -85,8 +88,10 @@ export default function App() {
       fetch('/api/settings').then(r => r.json()),
       fetch('/api/accounts').then(r => r.json()),
       fetch('/api/expenses').then(r => r.json()),
+      fetch('/api/strategies').then(r => r.json()),
+      fetch('/api/observations').then(r => r.json()),
     ])
-      .then(([t, instr, tags, cl, sett, accs, exps]) => {
+      .then(([t, instr, tags, cl, sett, accs, exps, strats, obs]) => {
         setTrades(t)
         setInstruments(instr)
         setAllTags(tags)
@@ -94,6 +99,8 @@ export default function App() {
         setSettings(sett)
         setAccounts(accs)
         setExpenses(exps)
+        setStrategies(strats)
+        setObservations(obs)
         setLoading(false)
       })
       .catch(err => { setError(err.message); setLoading(false) })
@@ -223,6 +230,59 @@ export default function App() {
     if (res.ok) refetchAccounts()
     return res
   }, [refetchAccounts])
+
+  const addStrategy = useCallback(async (data) => {
+    const r = await fetch('/api/strategies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    const newStrat = await r.json()
+    setStrategies(prev => [...prev, newStrat])
+    return newStrat
+  }, [])
+
+  const updateStrategy = useCallback(async (id, data) => {
+    const r = await fetch(`/api/strategies/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    const updated = await r.json()
+    setStrategies(prev => prev.map(s => s.id === id ? updated : s))
+  }, [])
+
+  const deleteStrategy = useCallback(async (id) => {
+    const res = await fetch(`/api/strategies/${id}`, { method: 'DELETE' })
+    if (res.ok) setStrategies(prev => prev.filter(s => s.id !== id))
+    return res
+  }, [])
+
+  const addObservation = useCallback(async (data) => {
+    const r = await fetch('/api/observations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    const newObs = await r.json()
+    setObservations(prev => [newObs, ...prev])
+    return newObs
+  }, [])
+
+  const updateObservation = useCallback(async (id, data) => {
+    const r = await fetch(`/api/observations/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    const updated = await r.json()
+    setObservations(prev => prev.map(o => o.id === id ? updated : o))
+  }, [])
+
+  const deleteObservation = useCallback(async (id) => {
+    await fetch(`/api/observations/${id}`, { method: 'DELETE' })
+    setObservations(prev => prev.filter(o => o.id !== id))
+  }, [])
 
   const addExpense = useCallback(async (data) => {
     const r   = await fetch('/api/expenses', {
@@ -520,6 +580,20 @@ export default function App() {
               onAdd={addExpense}
               onUpdate={updateExpense}
               onDelete={deleteExpense}
+            />
+          )}
+
+          {activeView === 'strategies' && (
+            <StrategiesPage
+              strategies={strategies}
+              observations={observations}
+              trades={trades}
+              onAddStrategy={addStrategy}
+              onUpdateStrategy={updateStrategy}
+              onDeleteStrategy={deleteStrategy}
+              onAddObservation={addObservation}
+              onUpdateObservation={updateObservation}
+              onDeleteObservation={deleteObservation}
             />
           )}
 

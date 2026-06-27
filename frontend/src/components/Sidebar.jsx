@@ -1,17 +1,18 @@
 import React from 'react'
 import {
   LayoutDashboard, List, CalendarDays, BarChart2,
-  Tag, Settings, Wallet, Briefcase,
+  Tag, Settings, Wallet, Briefcase, FlaskConical,
 } from 'lucide-react'
 
 const NAV = [
-  { id: 'dashboard', label: 'Dashboard',  icon: LayoutDashboard },
-  { id: 'trades',    label: 'Trades',     icon: List },
-  { id: 'calendar',  label: 'Calendar',   icon: CalendarDays },
-  { id: 'analytics', label: 'Analytics',  icon: BarChart2 },
-  { id: 'tags',      label: 'Tags',       icon: Tag },
-  { id: 'accounts',  label: 'Accounts',   icon: Wallet },
-  { id: 'business',  label: 'Business',   icon: Briefcase },
+  { id: 'dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
+  { id: 'trades',     label: 'Trades',     icon: List },
+  { id: 'calendar',   label: 'Calendar',   icon: CalendarDays },
+  { id: 'analytics',  label: 'Analytics',  icon: BarChart2 },
+  { id: 'tags',       label: 'Tags',       icon: Tag },
+  { id: 'accounts',   label: 'Accounts',   icon: Wallet },
+  { id: 'business',   label: 'Business',   icon: Briefcase },
+  { id: 'strategies', label: 'Strategies', icon: FlaskConical },
 ]
 
 export default function Sidebar({ collapsed, activeView, onSetView }) {
