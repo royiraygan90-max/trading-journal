@@ -114,6 +114,30 @@ def init_db():
             has_receipt INTEGER DEFAULT 0,
             created_at  TEXT DEFAULT (datetime('now'))
         );
+
+        CREATE TABLE IF NOT EXISTS strategies (
+            id          TEXT PRIMARY KEY,
+            name        TEXT NOT NULL,
+            parent_id   TEXT,
+            description TEXT DEFAULT '',
+            status      TEXT DEFAULT 'testing',
+            color       TEXT DEFAULT '#4f9cf9',
+            sort_order  INTEGER DEFAULT 0,
+            created_at  TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS observations (
+            id            TEXT PRIMARY KEY,
+            date          TEXT NOT NULL,
+            strategy_id   TEXT NOT NULL,
+            outcome       TEXT DEFAULT 'partial',
+            match_quality TEXT DEFAULT 'b',
+            traded        INTEGER DEFAULT 0,
+            trade_id      INTEGER,
+            notes         TEXT DEFAULT '',
+            has_image     INTEGER DEFAULT 0,
+            created_at    TEXT DEFAULT (datetime('now'))
+        );
     ''')
 
     # Seed instruments

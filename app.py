@@ -651,6 +651,269 @@ def serve_expense_image(exp_id, filename):
     return send_from_directory(folder, filename)
 
 
+# ── strategies ────────────────────────────────────────────────────────────────
+@app.route('/api/strategies', methods=['GET'])
+def get_strategies():
+    db   = get_db()
+    rows = db.execute('SELECT * FROM strategies ORDER BY sort_order').fetchall()
+    db.close()
+    return jsonify([row_to_dict(r) for r in rows])
+
+
+@app.route('/api/strategies', methods=['POST'])
+def add_strategy():
+    data     = request.get_json()
+    strat_id = 'strat_' + uuid.uuid4().hex[:8]
+    db       = get_db()
+    db.execute(
+        '''INSERT INTO strategies (id, name, parent_id, description, status, color, sort_order)
+           VALUES (:id,:name,:parent_id,:description,:status,:color,:sort_order)''',
+        {
+            'id':          strat_id,
+            'name':        data.get('name', ''),
+            'parent_id':   data.get('parent_id'),
+            'description': data.get('description', ''),
+            'status':      data.get('status', 'testing'),
+            'color':       data.get('color', '#4f9cf9'),
+            'sort_order':  data.get('sort_order', 0),
+        }
+    )
+    db.commit()
+    row = db.execute('SELECT * FROM strategies WHERE id=?', (strat_id,)).fetchone()
+    db.close()
+    return jsonify(row_to_dict(row)), 201
+
+
+@app.route('/api/strategies/<strat_id>', methods=['PUT'])
+def update_strategy(strat_id):
+    data = request.get_json()
+    db   = get_db()
+    db.execute(
+        '''UPDATE strategies SET
+               name=:name, parent_id=:parent_id, description=:description,
+               status=:status, color=:color, sort_order=:sort_order
+           WHERE id=:id''',
+        {
+            'id':          strat_id,
+            'name':        data.get('name', ''),
+            'parent_id':   data.get('parent_id'),
+            'description': data.get('description', ''),
+            'status':      data.get('status', 'testing'),
+            'color':       data.get('color', '#4f9cf9'),
+            'sort_order':  data.get('sort_order', 0),
+        }
+    )
+    db.commit()
+    row = db.execute('SELECT * FROM strategies WHERE id=?', (strat_id,)).fetchone()
+    db.close()
+    if row is None:
+        return jsonify({'error': 'Not found'}), 404
+    return jsonify(row_to_dict(row))
+
+
+@app.route('/api/strategies/<strat_id>', methods=['DELETE'])
+def delete_strategy(strat_id):
+    db          = get_db()
+    child_count = db.execute('SELECT COUNT(*) FROM strategies WHERE parent_id=?', (strat_id,)).fetchone()[0]
+    obs_count   = db.execute('SELECT COUNT(*) FROM observations WHERE strategy_id=?', (strat_id,)).fetchone()[0]
+    if child_count > 0 or obs_count > 0:
+        db.close()
+        return jsonify({'error': 'Strategy has variants or observations linked to it'}), 409
+    db.execute('DELETE FROM strategies WHERE id=?', (strat_id,))
+    db.commit()
+    db.close()
+    return jsonify({'ok': True})
+
+
+# ── observations ──────────────────────────────────────────────────────────────
+@app.route('/api/observations', methods=['GET'])
+def get_observations():
+    db   = get_db()
+    rows = db.execute('SELECT * FROM observations ORDER BY date DESC').fetchall()
+    db.close()
+    return jsonify([row_to_dict(r) for r in rows])
+
+
+@app.route('/api/observations', methods=['POST'])
+def add_observation():
+    data   = request.get_json()
+    obs_id = 'obs_' + uuid.uuid4().hex[:8]
+    db     = get_db()
+    db.execute(
+        '''INSERT INTO observations
+               (id, date, strategy_id, outcome, match_quality, traded, trade_id, notes)
+           VALUES (:id,:date,:strategy_id,:outcome,:match_quality,:traded,:trade_id,:notes)''',
+        {
+            'id':            obs_id,
+            'date':          data.get('date', ''),
+            'strategy_id':   data.get('strategy_id', ''),
+            'outcome':       data.get('outcome', 'partial'),
+            'match_quality': data.get('match_quality', 'b'),
+            'traded':        int(data.get('traded', 0)),
+            'trade_id':      data.get('trade_id'),
+            'notes':         data.get('notes', ''),
+        }
+    )
+    db.commit()
+    row = db.execute('SELECT * FROM observations WHERE id=?', (obs_id,)).fetchone()
+    db.close()
+    return jsonify(row_to_dict(row)), 201
+
+
+@app.route('/api/observations/<obs_id>', methods=['PUT'])
+def update_observation(obs_id):
+    data = request.get_json()
+    db   = get_db()
+    db.execute(
+        '''UPDATE observations SET
+               date=:date, strategy_id=:strategy_id, outcome=:outcome,
+               match_quality=:match_quality, traded=:traded, trade_id=:trade_id, notes=:notes
+           WHERE id=:id''',
+        {
+            'id':            obs_id,
+            'date':          data.get('date', ''),
+            'strategy_id':   data.get('strategy_id', ''),
+            'outcome':       data.get('outcome', 'partial'),
+            'match_quality': data.get('match_quality', 'b'),
+            'traded':        int(data.get('traded', 0)),
+            'trade_id':      data.get('trade_id'),
+            'notes':         data.get('notes', ''),
+        }
+    )
+    db.commit()
+    row = db.execute('SELECT * FROM observations WHERE id=?', (obs_id,)).fetchone()
+    db.close()
+    if row is None:
+        return jsonify({'error': 'Not found'}), 404
+    return jsonify(row_to_dict(row))
+
+
+@app.route('/api/observations/<obs_id>', methods=['DELETE'])
+def delete_observation(obs_id):
+    folder = os.path.join(IMAGES_DIR, 'observations', obs_id)
+    shutil.rmtree(folder, ignore_errors=True)
+    db = get_db()
+    db.execute('DELETE FROM observations WHERE id=?', (obs_id,))
+    db.commit()
+    db.close()
+    return jsonify({'ok': True})
+
+
+# ── strategy reference images ──────────────────────────────────────────────────
+@app.route('/api/strategies/<strat_id>/images', methods=['GET'])
+def get_strategy_images(strat_id):
+    folder = os.path.join(IMAGES_DIR, 'strategies', strat_id)
+    if not os.path.exists(folder):
+        return jsonify([])
+    files = sorted(
+        f for f in os.listdir(folder)
+        if os.path.splitext(f)[1].lower() in ALLOWED_EXTENSIONS
+    )
+    return jsonify([f'/api/strategy-images/{strat_id}/{f}' for f in files])
+
+
+@app.route('/api/strategies/<strat_id>/images', methods=['POST'])
+def upload_strategy_images(strat_id):
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    files  = request.files.getlist('file')
+    folder = os.path.join(IMAGES_DIR, 'strategies', strat_id)
+    os.makedirs(folder, exist_ok=True)
+    saved  = []
+    for f in files:
+        raw = secure_filename(f.filename or '')
+        if not raw:
+            continue
+        base, ext = os.path.splitext(raw)
+        if ext.lower() not in ALLOWED_EXTENSIONS:
+            continue
+        unique = f"{base}_{uuid.uuid4().hex[:6]}{ext}"
+        f.save(os.path.join(folder, unique))
+        saved.append(f'/api/strategy-images/{strat_id}/{unique}')
+    return jsonify(saved), 201
+
+
+@app.route('/api/strategies/<strat_id>/images/<filename>', methods=['DELETE'])
+def delete_strategy_image(strat_id, filename):
+    filename = os.path.basename(filename)
+    path     = os.path.join(IMAGES_DIR, 'strategies', strat_id, filename)
+    if os.path.exists(path):
+        os.remove(path)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/strategy-images/<strat_id>/<filename>')
+def serve_strategy_image(strat_id, filename):
+    filename = os.path.basename(filename)
+    folder   = os.path.join(IMAGES_DIR, 'strategies', strat_id)
+    return send_from_directory(folder, filename)
+
+
+# ── observation images ────────────────────────────────────────────────────────
+@app.route('/api/observations/<obs_id>/images', methods=['GET'])
+def get_observation_images(obs_id):
+    folder = os.path.join(IMAGES_DIR, 'observations', obs_id)
+    if not os.path.exists(folder):
+        return jsonify([])
+    files = sorted(
+        f for f in os.listdir(folder)
+        if os.path.splitext(f)[1].lower() in ALLOWED_EXTENSIONS
+    )
+    return jsonify([f'/api/observation-images/{obs_id}/{f}' for f in files])
+
+
+@app.route('/api/observations/<obs_id>/images', methods=['POST'])
+def upload_observation_images(obs_id):
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    files  = request.files.getlist('file')
+    folder = os.path.join(IMAGES_DIR, 'observations', obs_id)
+    os.makedirs(folder, exist_ok=True)
+    saved  = []
+    for f in files:
+        raw = secure_filename(f.filename or '')
+        if not raw:
+            continue
+        base, ext = os.path.splitext(raw)
+        if ext.lower() not in ALLOWED_EXTENSIONS:
+            continue
+        unique = f"{base}_{uuid.uuid4().hex[:6]}{ext}"
+        f.save(os.path.join(folder, unique))
+        saved.append(f'/api/observation-images/{obs_id}/{unique}')
+    if saved:
+        db = get_db()
+        db.execute('UPDATE observations SET has_image=1 WHERE id=?', (obs_id,))
+        db.commit()
+        db.close()
+    return jsonify(saved), 201
+
+
+@app.route('/api/observations/<obs_id>/images/<filename>', methods=['DELETE'])
+def delete_observation_image(obs_id, filename):
+    filename  = os.path.basename(filename)
+    folder    = os.path.join(IMAGES_DIR, 'observations', obs_id)
+    path      = os.path.join(folder, filename)
+    if os.path.exists(path):
+        os.remove(path)
+    remaining = [
+        f for f in os.listdir(folder)
+        if os.path.splitext(f)[1].lower() in ALLOWED_EXTENSIONS
+    ] if os.path.exists(folder) else []
+    if not remaining:
+        db = get_db()
+        db.execute('UPDATE observations SET has_image=0 WHERE id=?', (obs_id,))
+        db.commit()
+        db.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/observation-images/<obs_id>/<filename>')
+def serve_observation_image(obs_id, filename):
+    filename = os.path.basename(filename)
+    folder   = os.path.join(IMAGES_DIR, 'observations', obs_id)
+    return send_from_directory(folder, filename)
+
+
 # ── SPA catch-all ─────────────────────────────────────────────────────────────
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
