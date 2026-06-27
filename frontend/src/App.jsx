@@ -284,6 +284,11 @@ export default function App() {
     setObservations(prev => prev.filter(o => o.id !== id))
   }, [])
 
+  const refetchObservations = useCallback(async () => {
+    const r = await fetch('/api/observations')
+    setObservations(await r.json())
+  }, [])
+
   const addExpense = useCallback(async (data) => {
     const r   = await fetch('/api/expenses', {
       method: 'POST',
@@ -594,6 +599,7 @@ export default function App() {
               onAddObservation={addObservation}
               onUpdateObservation={updateObservation}
               onDeleteObservation={deleteObservation}
+              onRefetchObservations={refetchObservations}
             />
           )}
 

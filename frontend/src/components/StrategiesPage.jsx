@@ -389,11 +389,16 @@ function ObsModal({ mode, obs, strategies, trades, defaultStratId, onSave, onClo
 }
 
 // ── Observation screenshot modal ──────────────────────────────────────────────
-function ObsReceiptModal({ obsId, obsName, onDone }) {
+function ObsReceiptModal({ obsId, intro, onDone, onChanged }) {
   const fileRef               = useRef(null)
   const [uploading, setUploading] = useState(false)
   const [uploaded,  setUploaded]  = useState([])
   const [dragOver,  setDragOver]  = useState(false)
+
+  useEffect(() => {
+    fetch(`/api/observations/${obsId}/images`)
+      .then(r => r.json()).then(setUploaded).catch(() => {})
+  }, [obsId])
 
   async function uploadFiles(files) {
     if (!files?.length) return
@@ -402,22 +407,29 @@ function ObsReceiptModal({ obsId, obsName, onDone }) {
     for (const f of files) fd.append('file', f)
     try {
       const r = await fetch(`/api/observations/${obsId}/images`, { method: 'POST', body: fd })
-      if (r.ok) { const imgs = await r.json(); setUploaded(p => [...p, ...imgs]) }
+      if (r.ok) { const imgs = await r.json(); setUploaded(p => [...p, ...imgs]); onChanged?.() }
     } finally { setUploading(false) }
+  }
+
+  async function deleteImage(url) {
+    const fn = url.split('/').pop()
+    const r = await fetch(`/api/observations/${obsId}/images/${fn}`, { method: 'DELETE' })
+    if (r.ok) { setUploaded(p => p.filter(u => u !== url)); onChanged?.() }
   }
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onDone()}>
       <div className="modal">
         <div className="modal-header">
-          <div className="modal-title"><Paperclip size={15} />Attach Screenshot</div>
+          <div className="modal-title"><Paperclip size={15} />Manage Screenshots</div>
           <button className="modal-close" onClick={onDone}><X size={16} /></button>
         </div>
         <div className="modal-body">
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-1)', marginBottom: 14 }}>
-            Observation for <strong style={{ color: 'var(--text-0)' }}>{obsName}</strong> logged.
-            Optionally attach a screenshot.
-          </p>
+          {intro && (
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-1)', marginBottom: 14 }}>
+              {intro}
+            </p>
+          )}
           <div
             className={`receipt-drop-zone${dragOver ? ' drag-over' : ''}`}
             onDragOver={e => { e.preventDefault(); setDragOver(true) }}
@@ -435,14 +447,20 @@ function ObsReceiptModal({ obsId, obsName, onDone }) {
           {uploaded.length > 0 && (
             <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {uploaded.map(url => (
-                <img key={url} src={url} alt="screenshot"
-                  style={{ height: 72, borderRadius: 4, border: '1px solid var(--border)', objectFit: 'cover' }} />
+                <div key={url} className="strat-image-thumb">
+                  <img src={url} alt="screenshot" />
+                  <button className="strat-image-delete" onClick={() => deleteImage(url)} title="Remove">
+                    <X size={10} />
+                  </button>
+                </div>
               ))}
             </div>
           )}
         </div>
         <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onDone}>Skip</button>
+          {uploaded.length === 0 && (
+            <button className="btn btn-secondary" onClick={onDone}>Skip</button>
+          )}
           <button className="btn btn-primary" onClick={onDone}><Check size={13} /> Done</button>
         </div>
       </div>
@@ -704,7 +722,7 @@ function PlaybookView({ strategies, observations, onAddStrategy, onEditStrategy,
 }
 
 // ── Log view ──────────────────────────────────────────────────────────────────
-function LogView({ observations, strategies, trades, onAddObs, onEditObs, onDeleteObs }) {
+function LogView({ observations, strategies, trades, onAddObs, onEditObs, onDeleteObs, onOpenImages }) {
   const [filterStratId, setFilterStratId] = useState('all')
   const flat = useMemo(() => flatStrategyList(strategies), [strategies])
 
@@ -787,7 +805,14 @@ function LogView({ observations, strategies, trades, onAddObs, onEditObs, onDele
                               <Check size={12} />
                             </span>
                           ) : null}
-                          {obs.has_image ? <Paperclip size={12} style={{ color: 'var(--text-2)' }} title="Has screenshot" /> : null}
+                          <button
+                            className="row-action-btn"
+                            title={obs.has_image ? 'Manage screenshots' : 'Attach screenshot'}
+                            style={obs.has_image ? { color: 'var(--accent)' } : { color: 'var(--text-2)' }}
+                            onClick={() => onOpenImages({ id: obs.id, name: getStrat(obs.strategy_id)?.name ?? 'observation' })}
+                          >
+                            <Paperclip size={12} />
+                          </button>
                         </div>
                       </td>
                       <td style={{
@@ -819,11 +844,13 @@ export default function StrategiesPage({
   strategies, observations, trades,
   onAddStrategy, onUpdateStrategy, onDeleteStrategy,
   onAddObservation, onUpdateObservation, onDeleteObservation,
+  onRefetchObservations,
 }) {
-  const [tab,        setTab]        = useState('playbook')
-  const [stratModal, setStratModal] = useState(null) // { mode, strat?, parentId? }
-  const [obsModal,   setObsModal]   = useState(null) // { mode, obs?, defaultStratId? }
-  const [obsReceipt, setObsReceipt] = useState(null) // { id, name }
+  const [tab,            setTab]            = useState('playbook')
+  const [stratModal,     setStratModal]     = useState(null) // { mode, strat?, parentId? }
+  const [obsModal,       setObsModal]       = useState(null) // { mode, obs?, defaultStratId? }
+  const [obsReceipt,     setObsReceipt]     = useState(null) // { id, name }
+  const [obsImagesModal, setObsImagesModal] = useState(null) // { id, name }
 
   async function handleSaveStrat(data) {
     if (stratModal.mode === 'edit') {
@@ -899,6 +926,7 @@ export default function StrategiesPage({
           onAddObs={defaultStratId => setObsModal({ mode: 'add', defaultStratId })}
           onEditObs={obs => setObsModal({ mode: 'edit', obs })}
           onDeleteObs={handleDeleteObs}
+          onOpenImages={({ id, name }) => setObsImagesModal({ id, name })}
         />
       )}
 
@@ -927,8 +955,17 @@ export default function StrategiesPage({
       {obsReceipt && (
         <ObsReceiptModal
           obsId={obsReceipt.id}
-          obsName={obsReceipt.name}
+          intro={`Observation for ${obsReceipt.name} logged. Optionally attach a screenshot.`}
           onDone={() => setObsReceipt(null)}
+          onChanged={onRefetchObservations}
+        />
+      )}
+
+      {obsImagesModal && (
+        <ObsReceiptModal
+          obsId={obsImagesModal.id}
+          onDone={() => setObsImagesModal(null)}
+          onChanged={onRefetchObservations}
         />
       )}
     </div>
