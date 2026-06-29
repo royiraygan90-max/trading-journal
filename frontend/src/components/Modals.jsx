@@ -9,6 +9,7 @@ const DEFAULT_FORM = {
   entry:      '',
   exit:       '',
   quantity:   1,
+  stop_loss:  '',
   commission: '',
   notes:      '',
   tags:       [],
@@ -28,6 +29,7 @@ export default function Modals({ mode, trade, instruments, allTags, accounts, se
         entry:      trade.entry ?? '',
         exit:       trade.exit ?? '',
         quantity:   trade.quantity ?? 1,
+        stop_loss:  trade.stop_loss ?? '',
         commission: trade.commission ?? '',
         notes:      trade.notes || '',
         tags:       parseTags(trade.tags),
@@ -47,7 +49,7 @@ export default function Modals({ mode, trade, instruments, allTags, accounts, se
   function set(key, val) { setForm(prev => ({ ...prev, [key]: val })) }
 
   // Live P&L calculation
-  const { pnl, ticks, r } = useMemo(() => {
+  const { pnl, ticks, points, r } = useMemo(() => {
     const entry = parseFloat(form.entry)
     const exit  = parseFloat(form.exit)
     const qty   = parseInt(form.quantity) || 1
@@ -61,16 +63,23 @@ export default function Modals({ mode, trade, instruments, allTags, accounts, se
     let rawTicks = (exit - entry) / tickSize
     if (form.direction === 'Short') rawTicks = -rawTicks
 
-    const gross  = rawTicks * tickVal * qty
-    const net    = gross - comm
-    const r_mult = rawTicks / 8  // assume 8-tick default risk
+    const gross = rawTicks * tickVal * qty
+    const net   = gross - comm
+
+    const stopVal = parseFloat(form.stop_loss)
+    let r_mult = null
+    if (!isNaN(stopVal)) {
+      const riskTicks = Math.abs(entry - stopVal) / tickSize
+      if (riskTicks > 0) r_mult = rawTicks / riskTicks
+    }
 
     return {
-      pnl:   Math.round(net * 100) / 100,
-      ticks: Math.round(rawTicks * 100) / 100,
-      r:     Math.round(r_mult * 100) / 100,
+      pnl:    Math.round(net * 100) / 100,
+      ticks:  Math.round(rawTicks * 100) / 100,
+      points: Math.round(rawTicks * tickSize * 100) / 100,
+      r:      r_mult != null ? Math.round(r_mult * 100) / 100 : null,
     }
-  }, [form.entry, form.exit, form.quantity, form.commission, form.direction, form.symbol, instruments])
+  }, [form.entry, form.exit, form.quantity, form.commission, form.direction, form.symbol, form.stop_loss, instruments])
 
   function toggleTag(tagId) {
     set('tags', form.tags.includes(tagId)
@@ -99,6 +108,7 @@ export default function Modals({ mode, trade, instruments, allTags, accounts, se
       entry:      parseFloat(form.entry),
       exit:       parseFloat(form.exit),
       quantity:   parseInt(form.quantity) || 1,
+      stop_loss:  form.stop_loss === '' ? null : parseFloat(form.stop_loss),
       commission: parseFloat(form.commission) || 0,
       pnl:        pnl ?? 0,
       ticks:      ticks ?? null,
@@ -186,8 +196,8 @@ export default function Modals({ mode, trade, instruments, allTags, accounts, se
               </div>
             </div>
 
-            {/* Entry / Exit / Qty / Commission */}
-            <div className="form-grid cols-3" style={{ marginTop: 14 }}>
+            {/* Entry / Exit / Stop Loss / Qty */}
+            <div className="form-grid cols-4" style={{ marginTop: 14 }}>
               <div className="form-group">
                 <label className="form-label">Entry Price *</label>
                 <input
@@ -208,6 +218,17 @@ export default function Modals({ mode, trade, instruments, allTags, accounts, se
                   placeholder="0.00"
                   value={form.exit}
                   onChange={e => set('exit', e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Stop Loss</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="form-input"
+                  placeholder="0.00"
+                  value={form.stop_loss}
+                  onChange={e => set('stop_loss', e.target.value)}
                 />
               </div>
               <div className="form-group">
@@ -247,15 +268,15 @@ export default function Modals({ mode, trade, instruments, allTags, accounts, se
                   </div>
                 </div>
                 <div className="calc-item">
-                  <div className="calc-label">Ticks</div>
-                  <div className={`calc-value ${ticks >= 0 ? 'positive' : 'negative'}`}>
-                    {fmt.ticks(ticks)}
+                  <div className="calc-label">Points</div>
+                  <div className={`calc-value ${points >= 0 ? 'positive' : 'negative'}`}>
+                    {fmt.points(points)}
                   </div>
                 </div>
                 <div className="calc-item">
                   <div className="calc-label">R-Multiple</div>
-                  <div className={`calc-value ${r >= 0 ? 'positive' : 'negative'}`}>
-                    {fmt.r(r)}
+                  <div className={`calc-value ${r != null ? (r >= 0 ? 'positive' : 'negative') : ''}`}>
+                    {r != null ? fmt.r(r) : '— (add stop loss)'}
                   </div>
                 </div>
               </div>

@@ -42,6 +42,10 @@ export const fmt = {
     if (v == null) return '—'
     return v >= 0 ? `+${v}t` : `${v}t`
   },
+  points(v) {
+    if (v == null) return '—'
+    return v >= 0 ? `+${Number(v).toFixed(2)}pts` : `${Number(v).toFixed(2)}pts`
+  },
   r(v) {
     if (v == null) return '—'
     return v >= 0 ? `+${Number(v).toFixed(2)}R` : `${Number(v).toFixed(2)}R`

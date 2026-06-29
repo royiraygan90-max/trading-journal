@@ -356,7 +356,7 @@ export default function TradeDetail({
           <div className="tpl-header-center">
             <div className={`tpl-pnl ${pnlCls}`}>{fmt.pnl(trade.pnl)}</div>
             <div className="tpl-meta">
-              {trade.ticks    != null && <span>{fmt.ticks(trade.ticks)} ticks</span>}
+              {trade.ticks    != null && <span>{fmt.points(trade.ticks * 0.25)}</span>}
               {trade.r_multiple != null && <span>{fmt.r(trade.r_multiple)}</span>}
             </div>
           </div>
@@ -539,7 +539,7 @@ export default function TradeDetail({
                       { label: 'Entry',      value: fmt.num(trade.entry, 2),  cls: '' },
                       { label: 'Exit',       value: fmt.num(trade.exit, 2),   cls: '' },
                       { label: 'Quantity',   value: trade.quantity,           cls: '' },
-                      { label: 'Ticks',      value: trade.ticks      != null ? fmt.ticks(trade.ticks)      : '—', cls: pnlCls },
+                      { label: 'Points',     value: trade.ticks      != null ? fmt.points(trade.ticks * 0.25) : '—', cls: pnlCls },
                       { label: 'R-Multiple', value: trade.r_multiple != null ? fmt.r(trade.r_multiple)     : '—', cls: pnlCls },
                       { label: 'Commission', value: fmt.currency(trade.commission || 0), cls: 'negative' },
                     ].map(({ label, value, cls }) => (

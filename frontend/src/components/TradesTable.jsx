@@ -10,7 +10,7 @@ const COLUMNS = [
   { key: 'entry',      label: 'Entry',        sortable: true },
   { key: 'exit',       label: 'Exit',         sortable: true },
   { key: 'quantity',   label: 'Qty',          sortable: true },
-  { key: 'ticks',      label: 'Ticks',        sortable: true },
+  { key: 'ticks',      label: 'Points',       sortable: true },
   { key: 'r_multiple', label: 'R',            sortable: true },
   { key: 'pnl',        label: 'P&L',          sortable: true },
   { key: 'tags',       label: 'Tags',         sortable: false },
@@ -135,7 +135,7 @@ export default function TradesTable({
                   <td className="td-mono">{fmt.num(trade.exit, 2)}</td>
                   <td className="td-mono">{trade.quantity}</td>
                   <td className={`td-mono ${isWin ? 'positive' : isLoss ? 'negative' : ''}`}>
-                    {trade.ticks != null ? fmt.ticks(trade.ticks) : '—'}
+                    {trade.ticks != null ? fmt.points(trade.ticks * 0.25) : '—'}
                   </td>
                   <td className={`td-mono ${isWin ? 'positive' : isLoss ? 'negative' : ''}`}>
                     {trade.r_multiple != null ? fmt.r(trade.r_multiple) : '—'}

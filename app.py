@@ -58,13 +58,13 @@ def add_trade():
              strategy, plan, execution, emotion,
              entry_score, exit_score, risk_score, plan_adherence, lessons,
              plan_followed, biggest_mistake, would_do_differently, overall_rating,
-             chart_link, account_id)
+             chart_link, account_id, stop_loss)
         VALUES (:datetime,:symbol,:direction,:entry,:exit,:quantity,
                 :ticks,:r_multiple,:pnl,:commission,:notes,:tags,:has_screenshot,
                 :strategy,:plan,:execution,:emotion,
                 :entry_score,:exit_score,:risk_score,:plan_adherence,:lessons,
                 :plan_followed,:biggest_mistake,:would_do_differently,:overall_rating,
-                :chart_link,:account_id)
+                :chart_link,:account_id,:stop_loss)
     ''', {
         'datetime':             data.get('datetime', ''),
         'symbol':               data.get('symbol', ''),
@@ -94,6 +94,7 @@ def add_trade():
         'overall_rating':       int(data.get('overall_rating', 0)),
         'chart_link':           data.get('chart_link', ''),
         'account_id':           data.get('account_id'),
+        'stop_loss':            data.get('stop_loss'),
     })
     db.commit()
     trade_id = db.execute('SELECT last_insert_rowid()').fetchone()[0]
@@ -118,7 +119,7 @@ def update_trade(trade_id):
             risk_score=:risk_score, plan_adherence=:plan_adherence, lessons=:lessons,
             plan_followed=:plan_followed, biggest_mistake=:biggest_mistake,
             would_do_differently=:would_do_differently, overall_rating=:overall_rating,
-            chart_link=:chart_link, account_id=:account_id
+            chart_link=:chart_link, account_id=:account_id, stop_loss=:stop_loss
         WHERE id=:id
     ''', {
         'id':                   trade_id,
@@ -150,6 +151,7 @@ def update_trade(trade_id):
         'overall_rating':       int(data.get('overall_rating') or 0),
         'chart_link':           data.get('chart_link', ''),
         'account_id':           data.get('account_id'),
+        'stop_loss':            data.get('stop_loss'),
     })
     db.commit()
     row = db.execute('SELECT * FROM trades WHERE id=?', (trade_id,)).fetchone()

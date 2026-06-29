@@ -208,6 +208,15 @@ def init_db():
         except Exception:
             pass  # column already exists
 
+    trade_cols2 = [
+        "ALTER TABLE trades ADD COLUMN stop_loss REAL DEFAULT NULL",
+    ]
+    for sql in trade_cols2:
+        try:
+            c.execute(sql)
+        except Exception:
+            pass  # column already exists
+
     obs_cols = [
         "ALTER TABLE observations ADD COLUMN r_multiple REAL DEFAULT NULL",
     ]

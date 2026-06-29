@@ -2124,6 +2124,7 @@ tr:hover .row-actions { opacity: 1; }
 }
 
 .form-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.form-grid.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
 .form-group.full  { grid-column: 1 / -1; }
 
 .form-group {
