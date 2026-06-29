@@ -209,7 +209,8 @@ def init_db():
             pass  # column already exists
 
     trade_cols2 = [
-        "ALTER TABLE trades ADD COLUMN stop_loss REAL DEFAULT NULL",
+        "ALTER TABLE trades ADD COLUMN stop_loss   REAL DEFAULT NULL",
+        "ALTER TABLE trades ADD COLUMN take_profit REAL DEFAULT NULL",
     ]
     for sql in trade_cols2:
         try:

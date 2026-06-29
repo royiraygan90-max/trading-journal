@@ -2123,6 +2123,7 @@ tr:hover .row-actions { opacity: 1; }
   gap: 14px;
 }
 
+.form-grid.cols-2 { grid-template-columns: 1fr 1fr; }
 .form-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
 .form-grid.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
 .form-group.full  { grid-column: 1 / -1; }
@@ -2223,6 +2224,7 @@ tr:hover .row-actions { opacity: 1; }
 .calc-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 10px 12px;
   background: var(--bg-3);
