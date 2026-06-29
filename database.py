@@ -208,6 +208,15 @@ def init_db():
         except Exception:
             pass  # column already exists
 
+    obs_cols = [
+        "ALTER TABLE observations ADD COLUMN r_multiple REAL DEFAULT NULL",
+    ]
+    for sql in obs_cols:
+        try:
+            c.execute(sql)
+        except Exception:
+            pass  # column already exists
+
     conn.commit()
     conn.close()
 

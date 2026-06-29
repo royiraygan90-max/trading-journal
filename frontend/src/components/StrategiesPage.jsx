@@ -45,7 +45,9 @@ function buildObsStats(obs) {
   const didnt   = obs.filter(o => o.outcome === 'didnt_work').length
   const traded  = obs.filter(o => o.traded).length
   const pct     = total > 0 ? Math.round((worked / total) * 100) : null
-  return { total, worked, partial, didnt, traded, pct }
+  const rVals   = obs.map(o => o.r_multiple).filter(r => r != null && !Number.isNaN(r))
+  const avgR    = rVals.length > 0 ? (rVals.reduce((a, b) => a + b, 0) / rVals.length) : null
+  return { total, worked, partial, didnt, traded, pct, avgR }
 }
 
 function buildDowData(obs) {
@@ -233,7 +235,7 @@ function StrategyModal({ mode, strat, parentId, onSave, onClose }) {
 // ── Observation modal ─────────────────────────────────────────────────────────
 const DEFAULT_OBS_FORM = {
   date: '', strategy_id: '', outcome: 'partial', match_quality: 'b',
-  traded: false, trade_id: null, notes: '',
+  traded: false, trade_id: null, notes: '', r_multiple: '',
 }
 
 function ObsModal({ mode, obs, strategies, trades, defaultStratId, onSave, onClose }) {
@@ -243,6 +245,7 @@ function ObsModal({ mode, obs, strategies, trades, defaultStratId, onSave, onClo
         date: obs.date || todayStr(), strategy_id: obs.strategy_id || '',
         outcome: obs.outcome || 'partial', match_quality: obs.match_quality || 'b',
         traded: Boolean(obs.traded), trade_id: obs.trade_id || null, notes: obs.notes || '',
+        r_multiple: obs.r_multiple != null ? String(obs.r_multiple) : '',
       }
     }
     return { ...DEFAULT_OBS_FORM, date: todayStr(), strategy_id: defaultStratId || '' }
@@ -277,7 +280,7 @@ function ObsModal({ mode, obs, strategies, trades, defaultStratId, onSave, onClo
   function handleSubmit(e) {
     e.preventDefault()
     if (!form.date || !form.strategy_id) { alert('Date and Strategy are required.'); return }
-    onSave({ ...form, traded: form.traded ? 1 : 0, trade_id: form.traded ? form.trade_id : null })
+    onSave({ ...form, traded: form.traded ? 1 : 0, trade_id: form.traded ? form.trade_id : null, r_multiple: form.r_multiple === '' ? null : parseFloat(form.r_multiple) })
   }
 
   return (
@@ -346,7 +349,7 @@ function ObsModal({ mode, obs, strategies, trades, defaultStratId, onSave, onClo
                         key={t.id}
                         type="button"
                         className="obs-trade-option"
-                        onClick={() => { set('trade_id', t.id); setTradeSearch(`${t.symbol} · ${fmt.date(t.datetime)}`) }}
+                        onClick={() => { set('trade_id', t.id); setTradeSearch(`${t.symbol} · ${fmt.date(t.datetime)}`); if (t.r_multiple != null) set('r_multiple', String(t.r_multiple)) }}
                       >
                         <span style={{ color: 'var(--text-0)', fontWeight: 600 }}>{t.symbol}</span>
                         <span style={{ color: 'var(--text-2)', margin: '0 6px' }}>·</span>
@@ -370,6 +373,21 @@ function ObsModal({ mode, obs, strategies, trades, defaultStratId, onSave, onClo
                 )}
               </div>
             )}
+
+            <div className="form-group" style={{ marginTop: 14 }}>
+              <label className="form-label">R Multiple (R:R)</label>
+              <input
+                type="number" step="0.1" className="form-input" style={{ maxWidth: 160 }}
+                placeholder="e.g. 2.5"
+                value={form.r_multiple}
+                onChange={e => set('r_multiple', e.target.value)}
+              />
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-2)', marginTop: 4 }}>
+                {form.traded && form.trade_id
+                  ? 'Auto-filled from the linked trade — edit if you want to override it.'
+                  : 'Optional — your estimate of the R:R this setup would have achieved, based on the chart.'}
+              </div>
+            </div>
 
             <div className="form-group" style={{ marginTop: 14 }}>
               <label className="form-label">Notes</label>
@@ -604,6 +622,7 @@ function StrategyCard({ strat, variants, observations, onEdit, onDelete, onAddVa
                   { label: 'Partial',   val: stats.partial,  cls: 'accent' },
                   { label: "Didn't",    val: stats.didnt,    cls: 'negative' },
                   { label: '% Worked',  val: stats.pct != null ? `${stats.pct}%` : '—', cls: stats.pct != null ? (stats.pct >= 50 ? 'positive' : 'negative') : '' },
+                  { label: 'Avg R:R',   val: stats.avgR != null ? `${stats.avgR.toFixed(2)}R` : '—', cls: stats.avgR != null ? (stats.avgR >= 1 ? 'positive' : 'negative') : '' },
                   { label: 'Traded',    val: stats.traded,   cls: '' },
                 ].map(({ label, val, cls }) => (
                   <div key={label} className="strat-stat-item">
@@ -656,6 +675,7 @@ function StrategyCard({ strat, variants, observations, onEdit, onDelete, onAddVa
                       <th>Partial</th>
                       <th>Didn't</th>
                       <th>% Worked</th>
+                      <th>Avg R:R</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -678,6 +698,9 @@ function StrategyCard({ strat, variants, observations, onEdit, onDelete, onAddVa
                             color: s.pct != null ? (s.pct >= 50 ? 'var(--green)' : 'var(--red)') : 'var(--text-2)'
                           }}>
                             {s.pct != null ? `${s.pct}%` : '—'}
+                          </td>
+                          <td className="td-mono" style={{ color: s.avgR != null ? (s.avgR >= 1 ? 'var(--green)' : 'var(--red)') : 'var(--text-2)' }}>
+                            {s.avgR != null ? `${s.avgR.toFixed(2)}R` : '—'}
                           </td>
                         </tr>
                       )
@@ -792,6 +815,7 @@ function LogView({ observations, strategies, trades, onAddObs, onEditObs, onDele
                   <th>Strategy</th>
                   <th>Outcome</th>
                   <th>Quality</th>
+                  <th>R:R</th>
                   <th></th>
                   <th>Notes</th>
                   <th></th>
@@ -814,6 +838,9 @@ function LogView({ observations, strategies, trades, onAddObs, onEditObs, onDele
                       </td>
                       <td><OutcomeBadge outcome={obs.outcome} /></td>
                       <td><MqBadge mq={obs.match_quality} /></td>
+                      <td className="td-mono" style={{ color: obs.r_multiple != null ? (obs.r_multiple >= 1 ? 'var(--green)' : 'var(--red)') : 'var(--text-2)' }}>
+                        {obs.r_multiple != null ? `${obs.r_multiple.toFixed(2)}R` : '—'}
+                      </td>
                       <td>
                         <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
                           {obs.traded ? (

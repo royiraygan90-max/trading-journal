@@ -741,8 +741,8 @@ def add_observation():
     db     = get_db()
     db.execute(
         '''INSERT INTO observations
-               (id, date, strategy_id, outcome, match_quality, traded, trade_id, notes)
-           VALUES (:id,:date,:strategy_id,:outcome,:match_quality,:traded,:trade_id,:notes)''',
+               (id, date, strategy_id, outcome, match_quality, traded, trade_id, notes, r_multiple)
+           VALUES (:id,:date,:strategy_id,:outcome,:match_quality,:traded,:trade_id,:notes,:r_multiple)''',
         {
             'id':            obs_id,
             'date':          data.get('date', ''),
@@ -752,6 +752,7 @@ def add_observation():
             'traded':        int(data.get('traded', 0)),
             'trade_id':      data.get('trade_id'),
             'notes':         data.get('notes', ''),
+            'r_multiple':    data.get('r_multiple'),
         }
     )
     db.commit()
@@ -767,7 +768,8 @@ def update_observation(obs_id):
     db.execute(
         '''UPDATE observations SET
                date=:date, strategy_id=:strategy_id, outcome=:outcome,
-               match_quality=:match_quality, traded=:traded, trade_id=:trade_id, notes=:notes
+               match_quality=:match_quality, traded=:traded, trade_id=:trade_id, notes=:notes,
+               r_multiple=:r_multiple
            WHERE id=:id''',
         {
             'id':            obs_id,
@@ -778,6 +780,7 @@ def update_observation(obs_id):
             'traded':        int(data.get('traded', 0)),
             'trade_id':      data.get('trade_id'),
             'notes':         data.get('notes', ''),
+            'r_multiple':    data.get('r_multiple'),
         }
     )
     db.commit()
