@@ -32,8 +32,8 @@ const DEFAULT_LAYOUT = [
   { i: 'daily_pnl',    x: 0, y: 5,  w: 4,  h: 4, minW: 3, minH: 3 },
   { i: 'win_rate',     x: 4, y: 5,  w: 4,  h: 4, minW: 3, minH: 3 },
   { i: 'streak',       x: 8, y: 5,  w: 4,  h: 4, minW: 3, minH: 3 },
-  { i: 'checklist',    x: 0, y: 9,  w: 6,  h: 5, minW: 3, minH: 3 },
-  { i: 'calendar',     x: 6, y: 9,  w: 6,  h: 5, minW: 4, minH: 4 },
+  { i: 'checklist',    x: 0, y: 9,  w: 6,  h: 7, minW: 3, minH: 4 },
+  { i: 'calendar',     x: 6, y: 9,  w: 6,  h: 7, minW: 4, minH: 6 },
 ]
 
 function loadLayout() {

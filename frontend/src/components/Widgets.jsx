@@ -445,6 +445,7 @@ export default function Widgets({
                 onReset={onResetChecklist}
                 onReorder={onReorderChecklist}
               />
+
             </div>
           )
         })}
