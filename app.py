@@ -485,7 +485,9 @@ Provide feedback with three short sections: ✅ What went well, ⚠️ What to i
 
 
 # ── images ───────────────────────────────────────────────────────────────────
-ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
+ALLOWED_EXTENSIONS       = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
+ALLOWED_VIDEO_EXTENSIONS = {'.mp4', '.webm', '.mov', '.mkv'}
+VIDEO_MAX_BYTES          = 500 * 1024 * 1024   # 500 MB
 
 
 @app.route('/api/trades/<int:trade_id>/images', methods=['GET'])
@@ -534,6 +536,53 @@ def delete_trade_image(trade_id, filename):
 def serve_trade_image(trade_id, filename):
     filename = os.path.basename(filename)
     folder = os.path.join(IMAGES_DIR, str(trade_id))
+    return send_from_directory(folder, filename)
+
+
+# ── trade videos ──────────────────────────────────────────────────────────────
+@app.route('/api/trades/<int:trade_id>/videos', methods=['GET'])
+def get_trade_videos(trade_id):
+    folder = os.path.join(IMAGES_DIR, str(trade_id), 'videos')
+    if not os.path.exists(folder):
+        return jsonify([])
+    files = sorted(
+        f for f in os.listdir(folder)
+        if os.path.splitext(f)[1].lower() in ALLOWED_VIDEO_EXTENSIONS
+    )
+    return jsonify([f'/api/videos/{trade_id}/{f}' for f in files])
+
+
+@app.route('/api/trades/<int:trade_id>/videos', methods=['POST'])
+def upload_trade_video(trade_id):
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    f = request.files['file']
+    raw = secure_filename(f.filename or '')
+    if not raw:
+        return jsonify({'error': 'Empty filename'}), 400
+    base, ext = os.path.splitext(raw)
+    if ext.lower() not in ALLOWED_VIDEO_EXTENSIONS:
+        return jsonify({'error': f'Unsupported format: {ext}'}), 400
+    folder = os.path.join(IMAGES_DIR, str(trade_id), 'videos')
+    os.makedirs(folder, exist_ok=True)
+    unique = f'{base}_{uuid.uuid4().hex[:6]}{ext}'
+    f.save(os.path.join(folder, unique))
+    return jsonify({'url': f'/api/videos/{trade_id}/{unique}'}), 201
+
+
+@app.route('/api/trades/<int:trade_id>/videos/<filename>', methods=['DELETE'])
+def delete_trade_video(trade_id, filename):
+    filename = os.path.basename(filename)
+    path = os.path.join(IMAGES_DIR, str(trade_id), 'videos', filename)
+    if os.path.exists(path):
+        os.remove(path)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/videos/<int:trade_id>/<filename>')
+def serve_trade_video(trade_id, filename):
+    filename = os.path.basename(filename)
+    folder = os.path.join(IMAGES_DIR, str(trade_id), 'videos')
     return send_from_directory(folder, filename)
 
 

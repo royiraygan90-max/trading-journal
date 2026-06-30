@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import {
   X, Edit2, Trash2, Brain, Save, Image as ImageIcon,
   BookOpen, BarChart2, ChevronLeft, ChevronRight,
-  Star, TrendingUp, Calendar, Upload, ExternalLink,
+  Star, TrendingUp, Calendar, Upload, ExternalLink, Video,
 } from 'lucide-react'
 import { fmt, parseTags } from '../utils.jsx'
 
@@ -212,12 +212,15 @@ export default function TradeDetail({
   const [weekNote,   setWeekNote]   = useState('')
   const [weekSaved,  setWeekSaved]  = useState(false)
   const [journal,    setJournal]    = useState(EMPTY_JOURNAL)
-  const [images,      setImages]      = useState([])
-  const [uploading,   setUploading]   = useState(false)
-  const [dragOver,    setDragOver]    = useState(false)
-  const [lightboxIdx, setLightboxIdx] = useState(null)
-  const [journalTags, setJournalTags] = useState([])
-  const fileInputRef = useRef(null)
+  const [images,         setImages]         = useState([])
+  const [uploading,      setUploading]      = useState(false)
+  const [dragOver,       setDragOver]       = useState(false)
+  const [lightboxIdx,    setLightboxIdx]    = useState(null)
+  const [videos,         setVideos]         = useState([])
+  const [videoUploading, setVideoUploading] = useState(false)
+  const [journalTags,    setJournalTags]    = useState([])
+  const fileInputRef  = useRef(null)
+  const videoInputRef = useRef(null)
 
   useEffect(() => {
     setJournal({
@@ -244,6 +247,7 @@ export default function TradeDetail({
       fetch('/api/settings').then(r => r.json()).then(s => setWeekNote(s[key] || ''))
     }
     fetch(`/api/trades/${trade.id}/images`).then(r => r.json()).then(setImages).catch(() => setImages([]))
+    fetch(`/api/trades/${trade.id}/videos`).then(r => r.json()).then(setVideos).catch(() => setVideos([]))
   }, [trade.id])
 
   function setJ(key, val) {
@@ -287,6 +291,28 @@ export default function TradeDetail({
     const filename = url.split('/').pop()
     await fetch(`/api/trades/${trade.id}/images/${filename}`, { method: 'DELETE' })
     setImages(prev => prev.filter(u => u !== url))
+  }
+
+  async function uploadVideo(file) {
+    if (!file) return
+    if (!file.type.startsWith('video/')) return
+    if (file.size > 500 * 1024 * 1024) { alert('Video must be under 500 MB'); return }
+    setVideoUploading(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    try {
+      const res  = await fetch(`/api/trades/${trade.id}/videos`, { method: 'POST', body: fd })
+      const data = await res.json()
+      if (data.url) setVideos(prev => [...prev, data.url])
+    } finally {
+      setVideoUploading(false)
+    }
+  }
+
+  async function deleteVideo(url) {
+    const filename = url.split('/').pop()
+    await fetch(`/api/trades/${trade.id}/videos/${filename}`, { method: 'DELETE' })
+    setVideos(prev => prev.filter(u => u !== url))
   }
 
   async function runAiCoach() {
@@ -708,6 +734,58 @@ export default function TradeDetail({
                   ))}
                 </div>
               )}
+
+              {/* ── Video Review ── */}
+              <input
+                ref={videoInputRef}
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime,video/x-matroska"
+                style={{ display: 'none' }}
+                onChange={e => { uploadVideo(e.target.files?.[0]); e.target.value = '' }}
+              />
+              <div className="video-section">
+                <div className="video-section-header">
+                  <Video size={14} />
+                  <span>Video Review</span>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    style={{ marginLeft: 'auto' }}
+                    onClick={() => videoInputRef.current?.click()}
+                    disabled={videoUploading}
+                  >
+                    {videoUploading ? 'Uploading…' : '+ Add Video'}
+                  </button>
+                </div>
+
+                {videos.length === 0 && !videoUploading && (
+                  <div
+                    className="video-empty"
+                    onClick={() => videoInputRef.current?.click()}
+                  >
+                    <Video size={24} style={{ opacity: 0.25, marginBottom: 6 }} />
+                    <span>Click to add a video review of this trade</span>
+                    <span style={{ fontSize: '0.73rem', color: 'var(--text-3)' }}>MP4, WebM, MOV — up to 500 MB</span>
+                  </div>
+                )}
+
+                {videos.map(url => (
+                  <div key={url} className="video-player-wrap">
+                    <video
+                      src={url}
+                      controls
+                      className="video-player"
+                      preload="metadata"
+                    />
+                    <button
+                      className="video-delete-btn"
+                      title="Remove video"
+                      onClick={() => deleteVideo(url)}
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
 
               <div className="journal-section">
                 <label className="journal-label">TradingView Chart Link</label>
