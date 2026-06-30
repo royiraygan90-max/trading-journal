@@ -322,6 +322,18 @@ function CalendarWidget({ trades }) {
 
   function pad(n) { return String(n).padStart(2, '0') }
 
+  // Monthly summary
+  const monthlyStats = useMemo(() => {
+    let pnl = 0, count = 0, wins = 0, losses = 0
+    for (const [key, info] of Object.entries(dailyMap)) {
+      if (!key.startsWith(`${year}-${pad(month + 1)}`)) continue
+      pnl    += info.pnl
+      count  += info.count
+      if (info.pnl >= 0) wins++; else losses++
+    }
+    return { pnl, count, wins, losses }
+  }, [dailyMap, year, month])
+
   return (
     <div className="card calendar-widget">
       <div className="card-header">
@@ -332,14 +344,18 @@ function CalendarWidget({ trades }) {
           <button className="calendar-nav-btn" onClick={next}><ChevronRight size={14} /></button>
         </div>
       </div>
+
+      {/* Day-of-week header */}
       <div className="calendar-grid-header">
-        {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
+        {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
           <div key={d} className="cal-dow">{d}</div>
         ))}
       </div>
+
+      {/* Day cells */}
       <div className="calendar-grid">
         {cells.map((day, i) => {
-          if (!day) return <div key={i} />
+          if (!day) return <div key={i} className="cal-day cal-empty" />
           const key  = `${year}-${pad(month + 1)}-${pad(day)}`
           const info = dailyMap[key]
           const cls  = info ? (info.pnl >= 0 ? 'win' : 'loss') : ''
@@ -352,13 +368,35 @@ function CalendarWidget({ trades }) {
             <div
               key={i}
               className={`cal-day${info ? ' has-trade' : ''}${cls ? ` ${cls}` : ''}${isToday ? ' today' : ''}`}
-              title={info ? `${key}: ${fmt.pnl(info.pnl)} (${info.count} trades)` : undefined}
             >
-              {day}
+              <span className="cal-day-num">{day}</span>
+              {info ? (
+                <div className="cal-day-bottom">
+                  <span className="cal-day-pnl">{fmt.pnl(info.pnl)}</span>
+                  <span className="cal-day-count">{info.count} trade{info.count !== 1 ? 's' : ''}</span>
+                </div>
+              ) : isToday ? (
+                <span className="cal-today-dot">•</span>
+              ) : null}
             </div>
           )
         })}
       </div>
+
+      {/* Monthly summary bar */}
+      {monthlyStats.count > 0 && (
+        <div className="cal-summary">
+          <span className={`cal-sum-pnl ${monthlyStats.pnl >= 0 ? 'positive' : 'negative'}`}>
+            {fmt.pnl(monthlyStats.pnl)}
+          </span>
+          <span className="cal-sum-sep">·</span>
+          <span className="cal-sum-stat">{monthlyStats.count} trades</span>
+          <span className="cal-sum-sep">·</span>
+          <span className="cal-sum-stat positive">{monthlyStats.wins}W</span>
+          <span className="cal-sum-sep">/</span>
+          <span className="cal-sum-stat negative">{monthlyStats.losses}L</span>
+        </div>
+      )}
     </div>
   )
 }
