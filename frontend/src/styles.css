@@ -2321,6 +2321,7 @@ tr:hover .row-actions { opacity: 1; }
   outline: none;
   transition: border-color var(--transition);
   width: 100%;
+  unicode-bidi: plaintext;   /* auto-detect RTL/LTR per paragraph */
 }
 
 .form-input:focus,
