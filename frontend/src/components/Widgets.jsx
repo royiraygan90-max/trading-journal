@@ -237,7 +237,6 @@ function ChecklistWidget({ checklist, onAdd, onUpdate, onDelete, onReset, onReor
             draggable
             style={{ opacity: item.id === draggedId ? 0.4 : 1 }}
             onDragStart={e => {
-              if (!e.target.closest('.checklist-drag-handle')) { e.preventDefault(); return }
               setDraggedId(item.id)
               e.dataTransfer.effectAllowed = 'move'
             }}
