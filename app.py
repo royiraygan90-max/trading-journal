@@ -1,13 +1,36 @@
+import csv
+import io
 import json
 import os
+import re
 import shutil
 import uuid
+from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from database import get_db, init_db
 
 IMAGES_DIR = os.environ.get('IMAGES_DIR', '/app/data/images')
+
+# Tick sizes (price increment per tick) for common futures instruments
+TICK_SIZES = {
+    'ES': 0.25, 'MES': 0.25,
+    'NQ': 0.25, 'MNQ': 0.25,
+    'YM': 1.0,  'MYM': 1.0,
+    'CL': 0.01, 'GC':  0.10,
+    'RTY': 0.10, 'M2K': 0.10,
+}
+
+
+def _parse_tradovate_dt(s):
+    s = s.strip()
+    for fmt in ('%m/%d/%Y %H:%M:%S', '%m/%d/%Y %H:%M', '%Y-%m-%dT%H:%M:%S'):
+        try:
+            return datetime.strptime(s, fmt).strftime('%Y-%m-%dT%H:%M')
+        except ValueError:
+            pass
+    return s or None
 
 app = Flask(
     __name__,
@@ -920,6 +943,162 @@ def serve_observation_image(obs_id, filename):
     filename = os.path.basename(filename)
     folder   = os.path.join(IMAGES_DIR, 'observations', obs_id)
     return send_from_directory(folder, filename)
+
+
+# ── CSV import (Tradovate Orders export) ──────────────────────────────────────
+@app.route('/api/import/csv', methods=['POST'])
+def import_csv():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+
+    file       = request.files['file']
+    account_id = request.form.get('account_id') or None
+
+    try:
+        content = file.read().decode('utf-8-sig')
+    except Exception as e:
+        return jsonify({'error': f'Could not read file: {e}'}), 400
+
+    reader = csv.DictReader(io.StringIO(content))
+    rows   = []
+    for row in reader:
+        rows.append({k.strip(): (v.strip() if v else '') for k, v in row.items() if k and k.strip()})
+
+    if not rows:
+        return jsonify({'imported': 0, 'skipped': 0, 'errors': ['CSV is empty or unreadable']}), 200
+
+    # Only process filled orders
+    filled = [r for r in rows if r.get('Status', '').strip() == 'Filled']
+    if not filled:
+        return jsonify({
+            'imported': 0,
+            'skipped':  len(rows),
+            'errors':   ['No filled orders found. Export "Orders" from Tradovate and make sure some were filled.'],
+        }), 200
+
+    filled.sort(key=lambda r: r.get('Fill Time', '') or r.get('Timestamp', ''))
+
+    # Fetch tick values from instruments table
+    db = get_db()
+    tv_rows = db.execute('SELECT symbol, tick_value FROM instruments').fetchall()
+    tick_value_map = {r['symbol']: r['tick_value'] for r in tv_rows}
+
+    # Group by symbol (Product column already gives clean symbol)
+    from collections import defaultdict
+    by_symbol = defaultdict(list)
+    for r in filled:
+        symbol = r.get('Product', '').strip()
+        if not symbol:
+            symbol = re.sub(r'[FGHJKMNQUVXZ]\d{1,2}$', '', r.get('Contract', '').strip())
+        if symbol:
+            by_symbol[symbol].append(r)
+
+    trades_to_insert = []
+    total_skipped    = len(rows) - len(filled)   # canceled/not-filled rows
+    errors           = []
+
+    for symbol, orders in by_symbol.items():
+        # Prefer _tickSize from CSV; fall back to our hardcoded map
+        tick_size = TICK_SIZES.get(symbol, 0.25)
+        for o in orders:
+            ts = o.get('_tickSize', '')
+            if ts:
+                try:
+                    tick_size = float(ts)
+                    break
+                except ValueError:
+                    pass
+
+        tick_value = tick_value_map.get(symbol, 1.0)
+
+        # FIFO position matching: pair each entry fill with the next exit fill
+        long_queue  = []   # [[price, qty, datetime]]
+        short_queue = []
+
+        for order in orders:
+            side = order.get('B/S', '').strip()
+            try:
+                price = float(order.get('avgPrice') or order.get('Avg Fill Price') or 0)
+                qty   = int(float(order.get('filledQty') or order.get('Filled Qty') or 0))
+            except (ValueError, TypeError) as exc:
+                errors.append(f'{symbol}: bad price/qty — {exc}')
+                total_skipped += 1
+                continue
+
+            if not price or not qty:
+                total_skipped += 1
+                continue
+
+            fill_dt  = order.get('Fill Time', '') or order.get('Timestamp', '')
+            fill_fmt = _parse_tradovate_dt(fill_dt)
+            remaining = qty
+
+            if side == 'Buy':
+                # Close any open shorts first (FIFO)
+                while remaining > 0 and short_queue:
+                    ep, eq, edt = short_queue[0]
+                    matched = min(remaining, eq)
+                    pnl     = round((ep - price) / tick_size * tick_value * matched, 2)
+                    ticks   = round((ep - price) / tick_size)
+                    trades_to_insert.append({
+                        'datetime': edt, 'symbol': symbol, 'direction': 'Short',
+                        'entry': ep, 'exit': price, 'quantity': matched,
+                        'ticks': ticks, 'pnl': pnl, 'commission': 0,
+                        'tags': '[]', 'account_id': account_id,
+                    })
+                    remaining -= matched
+                    left = eq - matched
+                    if left > 0:
+                        short_queue[0] = [ep, left, edt]
+                    else:
+                        short_queue.pop(0)
+                if remaining > 0:
+                    long_queue.append([price, remaining, fill_fmt])
+
+            elif side == 'Sell':
+                # Close any open longs first (FIFO)
+                while remaining > 0 and long_queue:
+                    ep, eq, edt = long_queue[0]
+                    matched = min(remaining, eq)
+                    pnl     = round((price - ep) / tick_size * tick_value * matched, 2)
+                    ticks   = round((price - ep) / tick_size)
+                    trades_to_insert.append({
+                        'datetime': edt, 'symbol': symbol, 'direction': 'Long',
+                        'entry': ep, 'exit': price, 'quantity': matched,
+                        'ticks': ticks, 'pnl': pnl, 'commission': 0,
+                        'tags': '[]', 'account_id': account_id,
+                    })
+                    remaining -= matched
+                    left = eq - matched
+                    if left > 0:
+                        long_queue[0] = [ep, left, edt]
+                    else:
+                        long_queue.pop(0)
+                if remaining > 0:
+                    short_queue.append([price, remaining, fill_fmt])
+
+        unclosed = sum(q for _, q, _ in long_queue) + sum(q for _, q, _ in short_queue)
+        if unclosed:
+            total_skipped += unclosed
+            errors.append(f'{symbol}: {unclosed} contract(s) left open (no matching close)')
+
+    for t in trades_to_insert:
+        db.execute('''
+            INSERT INTO trades
+                (datetime, symbol, direction, entry, exit, quantity,
+                 ticks, pnl, commission, tags, account_id)
+            VALUES
+                (:datetime,:symbol,:direction,:entry,:exit,:quantity,
+                 :ticks,:pnl,:commission,:tags,:account_id)
+        ''', t)
+    db.commit()
+    db.close()
+
+    return jsonify({
+        'imported': len(trades_to_insert),
+        'skipped':  total_skipped,
+        'errors':   errors[:20],
+    })
 
 
 # ── SPA catch-all ─────────────────────────────────────────────────────────────

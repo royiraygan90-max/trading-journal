@@ -1,5 +1,5 @@
 import React from 'react'
-import { TrendingUp, Plus, Sliders, ChevronLeft, ChevronRight, X, Pencil, Check } from 'lucide-react'
+import { TrendingUp, Plus, Sliders, X, Pencil, Check, Upload } from 'lucide-react'
 
 const DIRECTIONS = ['Long', 'Short']
 const OUTCOMES   = [
@@ -13,7 +13,7 @@ export default function Header({
   instruments,
   accounts, selectedAccountId, onSelectAccount,
   sidebarCollapsed, onToggleSidebar,
-  onAddTrade, onCustomize,
+  onAddTrade, onImport, onCustomize,
   isEditMode, onEditLayout, onSaveLayout, onCancelLayout,
 }) {
   const hasFilters = filters.dateFrom || filters.dateTo || filters.symbol
@@ -134,6 +134,9 @@ export default function Header({
             Edit Layout
           </button>
         )}
+        <button className="btn-icon" onClick={onImport} title="Import from Tradovate CSV">
+          <Upload size={14} />
+        </button>
         <button className="btn-icon" onClick={onCustomize} title="Customize dashboard">
           <Sliders size={14} />
         </button>

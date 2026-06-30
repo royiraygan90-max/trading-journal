@@ -8,6 +8,7 @@ import Widgets         from './components/Widgets.jsx'
 import TradesTable     from './components/TradesTable.jsx'
 import TradeDetail     from './components/TradeDetail.jsx'
 import Modals          from './components/Modals.jsx'
+import ImportModal     from './components/ImportModal.jsx'
 import CustomizeDrawer from './components/CustomizeDrawer.jsx'
 import TagsPage        from './components/TagsPage.jsx'
 import AccountsPage    from './components/AccountsPage.jsx'
@@ -64,6 +65,7 @@ export default function App() {
   const [selectedTrade,     setSelectedTrade]     = useState(null)
   const [filters,           setFilters]           = useState({ dateFrom: '', dateTo: '', symbol: '', direction: '', outcome: '', tags: [], accountId: 'all' })
   const [showAddModal,      setShowAddModal]      = useState(false)
+  const [showImportModal,   setShowImportModal]   = useState(false)
   const [editTrade,         setEditTrade]         = useState(null)
   const [showCustomize,     setShowCustomize]     = useState(false)
   const [sidebarCollapsed,  setSidebarCollapsed]  = useState(false)
@@ -436,6 +438,7 @@ export default function App() {
         sidebarCollapsed={sidebarCollapsed}
         onToggleSidebar={() => setSidebarCollapsed(v => !v)}
         onAddTrade={() => setShowAddModal(true)}
+        onImport={() => setShowImportModal(true)}
         onCustomize={() => setShowCustomize(true)}
         isEditMode={isEditMode}
         onEditLayout={enterEditMode}
@@ -622,6 +625,15 @@ export default function App() {
           selectedAccountId={selectedAccountId}
           onSave={handleSaveTrade}
           onClose={handleCloseModal}
+        />
+      )}
+
+      {showImportModal && (
+        <ImportModal
+          accounts={accounts}
+          selectedAccountId={selectedAccountId}
+          onClose={() => setShowImportModal(false)}
+          onImported={refetchTrades}
         />
       )}
 
