@@ -165,6 +165,17 @@ def add_trade():
 def update_trade(trade_id):
     data = request.get_json()
     db   = get_db()
+    existing = db.execute('SELECT * FROM trades WHERE id=?', (trade_id,)).fetchone()
+    if existing is None:
+        db.close()
+        return jsonify({'error': 'Not found'}), 404
+
+    # Fields absent from the payload keep their current value instead of
+    # being reset to a default - callers (e.g. the basic edit-trade form)
+    # only know about a subset of columns and must not blank out the rest.
+    def g(name):
+        return data[name] if name in data else existing[name]
+
     db.execute('''
         UPDATE trades SET
             datetime=:datetime, symbol=:symbol, direction=:direction,
@@ -182,42 +193,40 @@ def update_trade(trade_id):
         WHERE id=:id
     ''', {
         'id':                   trade_id,
-        'datetime':             data.get('datetime', ''),
-        'symbol':               data.get('symbol', ''),
-        'direction':            data.get('direction', 'Long'),
-        'entry':                float(data.get('entry', 0)),
-        'exit':                 float(data.get('exit', 0)),
-        'quantity':             int(data.get('quantity', 1)),
-        'ticks':                data.get('ticks'),
-        'r_multiple':           data.get('r_multiple'),
-        'pnl':                  float(data.get('pnl', 0)),
-        'commission':           float(data.get('commission', 0)),
-        'notes':                data.get('notes', ''),
-        'tags':                 json.dumps(data.get('tags', [])),
-        'has_screenshot':       int(data.get('has_screenshot', 0)),
-        'strategy':             data.get('strategy', ''),
-        'plan':                 data.get('plan', ''),
-        'execution':            data.get('execution', ''),
-        'emotion':              data.get('emotion', ''),
-        'entry_score':          int(data.get('entry_score')  or 0),
-        'exit_score':           int(data.get('exit_score')   or 0),
-        'risk_score':           int(data.get('risk_score')   or 0),
-        'plan_adherence':       int(data.get('plan_adherence') or 0),
-        'lessons':              data.get('lessons', ''),
-        'plan_followed':        data.get('plan_followed', ''),
-        'biggest_mistake':      data.get('biggest_mistake', ''),
-        'would_do_differently': data.get('would_do_differently', ''),
-        'overall_rating':       int(data.get('overall_rating') or 0),
-        'chart_link':           data.get('chart_link', ''),
-        'account_id':           data.get('account_id'),
-        'stop_loss':            data.get('stop_loss'),
-        'take_profit':          data.get('take_profit'),
+        'datetime':             g('datetime'),
+        'symbol':               g('symbol'),
+        'direction':            g('direction'),
+        'entry':                float(g('entry')),
+        'exit':                 float(g('exit')),
+        'quantity':             int(g('quantity')),
+        'ticks':                g('ticks'),
+        'r_multiple':           g('r_multiple'),
+        'pnl':                  float(g('pnl')),
+        'commission':           float(g('commission') or 0),
+        'notes':                g('notes'),
+        'tags':                 json.dumps(data['tags']) if 'tags' in data else existing['tags'],
+        'has_screenshot':       int(g('has_screenshot') or 0),
+        'strategy':             g('strategy'),
+        'plan':                 g('plan'),
+        'execution':            g('execution'),
+        'emotion':              g('emotion'),
+        'entry_score':          int(g('entry_score')  or 0),
+        'exit_score':           int(g('exit_score')   or 0),
+        'risk_score':           int(g('risk_score')   or 0),
+        'plan_adherence':       int(g('plan_adherence') or 0),
+        'lessons':              g('lessons'),
+        'plan_followed':        g('plan_followed'),
+        'biggest_mistake':      g('biggest_mistake'),
+        'would_do_differently': g('would_do_differently'),
+        'overall_rating':       int(g('overall_rating') or 0),
+        'chart_link':           g('chart_link'),
+        'account_id':           g('account_id'),
+        'stop_loss':            g('stop_loss'),
+        'take_profit':          g('take_profit'),
     })
     db.commit()
     row = db.execute('SELECT * FROM trades WHERE id=?', (trade_id,)).fetchone()
     db.close()
-    if row is None:
-        return jsonify({'error': 'Not found'}), 404
     return jsonify(trade_to_dict(row))
 
 
@@ -277,13 +286,15 @@ def add_tag():
 def update_tag(tag_id):
     data = request.get_json()
     db = get_db()
+    existing = db.execute('SELECT * FROM tags WHERE id=?', (tag_id,)).fetchone()
+    if existing is None:
+        db.close()
+        return jsonify({'error': 'Not found'}), 404
     db.execute('UPDATE tags SET label=?, color=? WHERE id=?',
-               (data.get('label', ''), data.get('color', '#8a9bb0'), tag_id))
+               (data.get('label', existing['label']), data.get('color', existing['color']), tag_id))
     db.commit()
     row = db.execute('SELECT * FROM tags WHERE id=?', (tag_id,)).fetchone()
     db.close()
-    if row is None:
-        return jsonify({'error': 'Not found'}), 404
     return jsonify(row_to_dict(row))
 
 
@@ -348,6 +359,14 @@ def add_account():
 def update_account(acc_id):
     data = request.get_json()
     db = get_db()
+    existing = db.execute('SELECT * FROM accounts WHERE id=?', (acc_id,)).fetchone()
+    if existing is None:
+        db.close()
+        return jsonify({'error': 'Not found'}), 404
+
+    def g(name):
+        return data[name] if name in data else existing[name]
+
     db.execute(
         '''UPDATE accounts SET
                name=:name, firm=:firm, account_type=:account_type, status=:status,
@@ -357,23 +376,21 @@ def update_account(acc_id):
            WHERE id=:id''',
         {
             'id':              acc_id,
-            'name':            data.get('name', ''),
-            'firm':            data.get('firm', ''),
-            'account_type':    data.get('account_type', 'live'),
-            'status':          data.get('status', 'active'),
-            'account_size':    data.get('account_size'),
-            'risk_per_trade':  data.get('risk_per_trade'),
-            'max_daily_loss':  data.get('max_daily_loss'),
-            'max_weekly_loss': data.get('max_weekly_loss'),
-            'color':           data.get('color', '#4f9cf9'),
-            'sort_order':      data.get('sort_order', 0),
+            'name':            g('name'),
+            'firm':            g('firm'),
+            'account_type':    g('account_type'),
+            'status':          g('status'),
+            'account_size':    g('account_size'),
+            'risk_per_trade':  g('risk_per_trade'),
+            'max_daily_loss':  g('max_daily_loss'),
+            'max_weekly_loss': g('max_weekly_loss'),
+            'color':           g('color'),
+            'sort_order':      g('sort_order'),
         }
     )
     db.commit()
     row = db.execute('SELECT * FROM accounts WHERE id=?', (acc_id,)).fetchone()
     db.close()
-    if row is None:
-        return jsonify({'error': 'Not found'}), 404
     return jsonify(row_to_dict(row))
 
 
@@ -423,20 +440,26 @@ def add_checklist_item():
 def update_checklist_item(item_id):
     data = request.get_json()
     db   = get_db()
+    existing = db.execute('SELECT * FROM checklist WHERE id=?', (item_id,)).fetchone()
+    if existing is None:
+        db.close()
+        return jsonify({'error': 'Not found'}), 404
+
+    def g(name):
+        return data[name] if name in data else existing[name]
+
     db.execute('''
         UPDATE checklist SET text=:text, done=:done, sort_order=:sort_order
         WHERE id=:id
     ''', {
         'id':         item_id,
-        'text':       data.get('text', ''),
-        'done':       int(data.get('done', 0)),
-        'sort_order': data.get('sort_order', 0),
+        'text':       g('text'),
+        'done':       int(g('done') or 0),
+        'sort_order': g('sort_order'),
     })
     db.commit()
     row = db.execute('SELECT * FROM checklist WHERE id=?', (item_id,)).fetchone()
     db.close()
-    if row is None:
-        return jsonify({'error': 'Not found'}), 404
     return jsonify(row_to_dict(row))
 
 
@@ -660,6 +683,14 @@ def add_expense():
 def update_expense(exp_id):
     data = request.get_json()
     db   = get_db()
+    existing = db.execute('SELECT * FROM business_expenses WHERE id=?', (exp_id,)).fetchone()
+    if existing is None:
+        db.close()
+        return jsonify({'error': 'Not found'}), 404
+
+    def g(name):
+        return data[name] if name in data else existing[name]
+
     db.execute(
         '''UPDATE business_expenses SET
                date=:date, category=:category, vendor=:vendor,
@@ -668,21 +699,19 @@ def update_expense(exp_id):
            WHERE id=:id''',
         {
             'id':         exp_id,
-            'date':       data.get('date', ''),
-            'category':   data.get('category', 'Other'),
-            'vendor':     data.get('vendor', ''),
-            'amount':     float(data.get('amount', 0)),
-            'currency':   data.get('currency', 'USD'),
-            'account_id': data.get('account_id'),
-            'recurring':  int(data.get('recurring', 0)),
-            'notes':      data.get('notes', ''),
+            'date':       g('date'),
+            'category':   g('category'),
+            'vendor':     g('vendor'),
+            'amount':     float(g('amount') or 0),
+            'currency':   g('currency'),
+            'account_id': g('account_id'),
+            'recurring':  int(g('recurring') or 0),
+            'notes':      g('notes'),
         }
     )
     db.commit()
     row = db.execute('SELECT * FROM business_expenses WHERE id=?', (exp_id,)).fetchone()
     db.close()
-    if row is None:
-        return jsonify({'error': 'Not found'}), 404
     return jsonify(row_to_dict(row))
 
 
@@ -799,6 +828,14 @@ def add_strategy():
 def update_strategy(strat_id):
     data = request.get_json()
     db   = get_db()
+    existing = db.execute('SELECT * FROM strategies WHERE id=?', (strat_id,)).fetchone()
+    if existing is None:
+        db.close()
+        return jsonify({'error': 'Not found'}), 404
+
+    def g(name):
+        return data[name] if name in data else existing[name]
+
     db.execute(
         '''UPDATE strategies SET
                name=:name, parent_id=:parent_id, description=:description,
@@ -806,19 +843,17 @@ def update_strategy(strat_id):
            WHERE id=:id''',
         {
             'id':          strat_id,
-            'name':        data.get('name', ''),
-            'parent_id':   data.get('parent_id'),
-            'description': data.get('description', ''),
-            'status':      data.get('status', 'testing'),
-            'color':       data.get('color', '#4f9cf9'),
-            'sort_order':  data.get('sort_order', 0),
+            'name':        g('name'),
+            'parent_id':   g('parent_id'),
+            'description': g('description'),
+            'status':      g('status'),
+            'color':       g('color'),
+            'sort_order':  g('sort_order'),
         }
     )
     db.commit()
     row = db.execute('SELECT * FROM strategies WHERE id=?', (strat_id,)).fetchone()
     db.close()
-    if row is None:
-        return jsonify({'error': 'Not found'}), 404
     return jsonify(row_to_dict(row))
 
 
@@ -876,6 +911,14 @@ def add_observation():
 def update_observation(obs_id):
     data = request.get_json()
     db   = get_db()
+    existing = db.execute('SELECT * FROM observations WHERE id=?', (obs_id,)).fetchone()
+    if existing is None:
+        db.close()
+        return jsonify({'error': 'Not found'}), 404
+
+    def g(name):
+        return data[name] if name in data else existing[name]
+
     db.execute(
         '''UPDATE observations SET
                date=:date, strategy_id=:strategy_id, outcome=:outcome,
@@ -884,21 +927,19 @@ def update_observation(obs_id):
            WHERE id=:id''',
         {
             'id':            obs_id,
-            'date':          data.get('date', ''),
-            'strategy_id':   data.get('strategy_id', ''),
-            'outcome':       data.get('outcome', 'partial'),
-            'match_quality': data.get('match_quality', 'b'),
-            'traded':        int(data.get('traded', 0)),
-            'trade_id':      data.get('trade_id'),
-            'notes':         data.get('notes', ''),
-            'r_multiple':    data.get('r_multiple'),
+            'date':          g('date'),
+            'strategy_id':   g('strategy_id'),
+            'outcome':       g('outcome'),
+            'match_quality': g('match_quality'),
+            'traded':        int(g('traded') or 0),
+            'trade_id':      g('trade_id'),
+            'notes':         g('notes'),
+            'r_multiple':    g('r_multiple'),
         }
     )
     db.commit()
     row = db.execute('SELECT * FROM observations WHERE id=?', (obs_id,)).fetchone()
     db.close()
-    if row is None:
-        return jsonify({'error': 'Not found'}), 404
     return jsonify(row_to_dict(row))
 
 
