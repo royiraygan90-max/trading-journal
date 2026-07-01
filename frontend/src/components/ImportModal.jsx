@@ -48,7 +48,7 @@ export default function ImportModal({ accounts, selectedAccountId, onClose, onIm
         <div className="modal-header">
           <span className="modal-title">
             <Upload size={15} />
-            Import from Tradovate
+            Import Trades
           </span>
           <button className="modal-close" onClick={onClose}><X size={14} /></button>
         </div>
@@ -77,7 +77,7 @@ export default function ImportModal({ accounts, selectedAccountId, onClose, onIm
                     גרור לכאן או <u style={{ cursor: 'pointer' }}>בחר קובץ</u>
                   </span>
                   <span style={{ color: 'var(--text-3)', fontSize: '0.75rem', marginTop: 4 }}>
-                    Tradovate → Orders export (.csv)
+                    Tradovate או TradingView → Orders export (.csv)
                   </span>
                 </>
             }
@@ -109,8 +109,8 @@ export default function ImportModal({ accounts, selectedAccountId, onClose, onIm
               color: 'var(--text-3)',
               lineHeight: 1.6,
             }}>
-              <strong style={{ color: 'var(--text-2)' }}>איך לייצא מ-Tradovate:</strong><br />
-              Dashboard → Orders → סנן תאריך → Export
+              <strong style={{ color: 'var(--text-2)' }}>Tradovate:</strong> Dashboard → Orders → סנן תאריך → Export<br />
+              <strong style={{ color: 'var(--text-2)' }}>TradingView:</strong> Trading Panel → Orders → Export CSV
             </div>
           )}
 

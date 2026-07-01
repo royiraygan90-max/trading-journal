@@ -25,12 +25,46 @@ TICK_SIZES = {
 
 def _parse_tradovate_dt(s):
     s = s.strip()
-    for fmt in ('%m/%d/%Y %H:%M:%S', '%m/%d/%Y %H:%M', '%Y-%m-%dT%H:%M:%S'):
+    for fmt in ('%m/%d/%Y %H:%M:%S', '%m/%d/%Y %H:%M',
+                '%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%dT%H:%M:%S'):
         try:
             return datetime.strptime(s, fmt).strftime('%Y-%m-%dT%H:%M')
         except ValueError:
             pass
     return s or None
+
+
+def _normalize_order_row(r):
+    """
+    Normalizes a row from either the Tradovate 'Orders' export
+    (orderId,Account,...,B/S,Contract,Product,...,avgPrice,filledQty,Fill Time,Status,...)
+    or the TradingView/Tradovate trading-panel export
+    (Symbol,Side,Type,Qty,...,Avg Fill Price,Status,Update Time,...)
+    into a common dict: {symbol, side, price, qty, status, datetime}
+    """
+    status = (r.get('Status') or '').strip()
+
+    side = (r.get('B/S') or r.get('Side') or '').strip()
+
+    symbol = (r.get('Product') or '').strip()
+    if not symbol:
+        raw_symbol = (r.get('Contract') or r.get('Symbol') or '').strip()
+        symbol = re.sub(r'[FGHJKMNQUVXZ]\d{1,2}$', '', raw_symbol)
+
+    price_raw = r.get('avgPrice') or r.get('Avg Fill Price') or ''
+    qty_raw   = r.get('filledQty') or r.get('Filled Qty') or ''
+
+    dt_raw = r.get('Fill Time') or r.get('Timestamp') or r.get('Update Time') or ''
+
+    return {
+        'symbol': symbol,
+        'side':   side,
+        'status': status,
+        'price_raw': price_raw,
+        'qty_raw':   qty_raw,
+        'datetime':  _parse_tradovate_dt(dt_raw),
+        'sort_key':  dt_raw,
+    }
 
 app = Flask(
     __name__,
@@ -1009,55 +1043,44 @@ def import_csv():
         return jsonify({'error': f'Could not read file: {e}'}), 400
 
     reader = csv.DictReader(io.StringIO(content))
-    rows   = []
+    raw_rows = []
     for row in reader:
-        rows.append({k.strip(): (v.strip() if v else '') for k, v in row.items() if k and k.strip()})
+        raw_rows.append({k.strip(): (v.strip() if v else '') for k, v in row.items() if k and k.strip()})
 
-    if not rows:
+    if not raw_rows:
         return jsonify({'imported': 0, 'skipped': 0, 'errors': ['CSV is empty or unreadable']}), 200
 
+    rows = [_normalize_order_row(r) for r in raw_rows]
+
     # Only process filled orders
-    filled = [r for r in rows if r.get('Status', '').strip() == 'Filled']
+    filled = [r for r in rows if r['status'] == 'Filled']
     if not filled:
         return jsonify({
             'imported': 0,
             'skipped':  len(rows),
-            'errors':   ['No filled orders found. Export "Orders" from Tradovate and make sure some were filled.'],
+            'errors':   ['No filled orders found. Export "Orders" from Tradovate or TradingView and make sure some were filled.'],
         }), 200
 
-    filled.sort(key=lambda r: r.get('Fill Time', '') or r.get('Timestamp', ''))
+    filled.sort(key=lambda r: r['sort_key'])
 
     # Fetch tick values from instruments table
     db = get_db()
     tv_rows = db.execute('SELECT symbol, tick_value FROM instruments').fetchall()
     tick_value_map = {r['symbol']: r['tick_value'] for r in tv_rows}
 
-    # Group by symbol (Product column already gives clean symbol)
+    # Group by symbol
     from collections import defaultdict
     by_symbol = defaultdict(list)
     for r in filled:
-        symbol = r.get('Product', '').strip()
-        if not symbol:
-            symbol = re.sub(r'[FGHJKMNQUVXZ]\d{1,2}$', '', r.get('Contract', '').strip())
-        if symbol:
-            by_symbol[symbol].append(r)
+        if r['symbol']:
+            by_symbol[r['symbol']].append(r)
 
     trades_to_insert = []
     total_skipped    = len(rows) - len(filled)   # canceled/not-filled rows
     errors           = []
 
     for symbol, orders in by_symbol.items():
-        # Prefer _tickSize from CSV; fall back to our hardcoded map
-        tick_size = TICK_SIZES.get(symbol, 0.25)
-        for o in orders:
-            ts = o.get('_tickSize', '')
-            if ts:
-                try:
-                    tick_size = float(ts)
-                    break
-                except ValueError:
-                    pass
-
+        tick_size  = TICK_SIZES.get(symbol, 0.25)
         tick_value = tick_value_map.get(symbol, 1.0)
 
         # FIFO position matching: pair each entry fill with the next exit fill
@@ -1065,10 +1088,10 @@ def import_csv():
         short_queue = []
 
         for order in orders:
-            side = order.get('B/S', '').strip()
+            side = order['side']
             try:
-                price = float(order.get('avgPrice') or order.get('Avg Fill Price') or 0)
-                qty   = int(float(order.get('filledQty') or order.get('Filled Qty') or 0))
+                price = float(order['price_raw'] or 0)
+                qty   = int(float(order['qty_raw'] or 0))
             except (ValueError, TypeError) as exc:
                 errors.append(f'{symbol}: bad price/qty — {exc}')
                 total_skipped += 1
@@ -1078,8 +1101,7 @@ def import_csv():
                 total_skipped += 1
                 continue
 
-            fill_dt  = order.get('Fill Time', '') or order.get('Timestamp', '')
-            fill_fmt = _parse_tradovate_dt(fill_dt)
+            fill_fmt  = order['datetime']
             remaining = qty
 
             if side == 'Buy':
