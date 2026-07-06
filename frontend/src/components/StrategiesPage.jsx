@@ -259,6 +259,43 @@ function ObsModal({ mode, obs, strategies, trades, defaultStratId, onSave, onClo
     return ''
   })
 
+  // ── Batch mode: log the same date/quality/notes across a base strategy + all its variants ──
+  const [batchMode,    setBatchMode]    = useState(false)
+  const [baseStratId,  setBaseStratId]  = useState('')
+  const [rowIncluded,  setRowIncluded]  = useState({}) // { stratId: bool }
+  const [rowOutcomes,  setRowOutcomes]  = useState({}) // { stratId: outcome }
+
+  const bases = useMemo(() => strategies.filter(s => !s.parent_id), [strategies])
+
+  const batchRows = useMemo(() => {
+    if (!baseStratId) return []
+    const base     = strategies.find(s => s.id === baseStratId)
+    const variants = strategies
+      .filter(s => s.parent_id === baseStratId)
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    return base ? [base, ...variants] : []
+  }, [strategies, baseStratId])
+
+  function findBaseId(id) {
+    const s = strategies.find(x => x.id === id)
+    if (!s) return ''
+    return s.parent_id ? s.parent_id : s.id
+  }
+
+  function toggleBatchMode() {
+    setBatchMode(v => {
+      const next = !v
+      if (next) setBaseStratId(findBaseId(form.strategy_id) || bases[0]?.id || '')
+      return next
+    })
+  }
+
+  useEffect(() => {
+    if (!batchMode) return
+    setRowIncluded(Object.fromEntries(batchRows.map(r => [r.id, true])))
+    setRowOutcomes(Object.fromEntries(batchRows.map(r => [r.id, 'worked'])))
+  }, [batchMode, baseStratId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   function set(k, v) {
     setForm(p => {
       const n = { ...p, [k]: v }
@@ -279,7 +316,26 @@ function ObsModal({ mode, obs, strategies, trades, defaultStratId, onSave, onClo
 
   function handleSubmit(e) {
     e.preventDefault()
-    if (!form.date || !form.strategy_id) { alert('Date and Strategy are required.'); return }
+    if (!form.date) { alert('Date is required.'); return }
+
+    if (batchMode) {
+      const included = batchRows.filter(r => rowIncluded[r.id])
+      if (included.length === 0) { alert('Select at least one strategy/variant.'); return }
+      const payload = included.map(r => ({
+        date: form.date,
+        strategy_id: r.id,
+        outcome: rowOutcomes[r.id] || 'worked',
+        match_quality: form.match_quality,
+        traded: 0,
+        trade_id: null,
+        notes: form.notes,
+        r_multiple: null,
+      }))
+      onSave(payload)
+      return
+    }
+
+    if (!form.strategy_id) { alert('Strategy is required.'); return }
     onSave({ ...form, traded: form.traded ? 1 : 0, trade_id: form.traded ? form.trade_id : null, r_multiple: form.r_multiple === '' ? null : parseFloat(form.r_multiple) })
   }
 
@@ -302,37 +358,89 @@ function ObsModal({ mode, obs, strategies, trades, defaultStratId, onSave, onClo
                   onChange={e => set('date', e.target.value)} required />
               </div>
               <div className="form-group">
-                <label className="form-label">Strategy *</label>
-                <select className="form-select" value={form.strategy_id}
-                  onChange={e => set('strategy_id', e.target.value)} required>
-                  <option value="">— Select strategy —</option>
-                  {flat.map(({ strat, indent }) => (
-                    <option key={strat.id} value={strat.id}>
-                      {indent ? `    ${strat.name}` : strat.name}
-                    </option>
-                  ))}
-                </select>
+                <label className="form-label">{batchMode ? 'Base Strategy *' : 'Strategy *'}</label>
+                {batchMode ? (
+                  <select className="form-select" value={baseStratId}
+                    onChange={e => setBaseStratId(e.target.value)} required>
+                    <option value="">— Select strategy —</option>
+                    {bases.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                ) : (
+                  <select className="form-select" value={form.strategy_id}
+                    onChange={e => set('strategy_id', e.target.value)} required>
+                    <option value="">— Select strategy —</option>
+                    {flat.map(({ strat, indent }) => (
+                      <option key={strat.id} value={strat.id}>
+                        {indent ? `    ${strat.name}` : strat.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
 
-            <div className="form-group" style={{ marginTop: 14 }}>
-              <label className="form-label">Outcome *</label>
-              <SegmentedControl options={OUTCOMES} value={form.outcome} onChange={v => set('outcome', v)} />
-            </div>
+            {mode === 'add' && (
+              <button
+                type="button"
+                className="obs-batch-toggle"
+                onClick={toggleBatchMode}
+              >
+                {batchMode ? '← Log a single observation' : '+ Log for multiple variants at once'}
+              </button>
+            )}
+
+            {batchMode ? (
+              batchRows.length > 0 && (
+                <div className="form-group" style={{ marginTop: 14 }}>
+                  <label className="form-label">Outcome per Strategy / Variant *</label>
+                  <div className="batch-variant-list">
+                    {batchRows.map(r => (
+                      <div key={r.id} className="batch-variant-row">
+                        <label className="expense-checkbox-label" style={{ flex: 1, minWidth: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={!!rowIncluded[r.id]}
+                            onChange={e => setRowIncluded(p => ({ ...p, [r.id]: e.target.checked }))}
+                          />
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: r.color, flexShrink: 0 }} />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {r.name}{!r.parent_id ? ' (direct)' : ''}
+                            </span>
+                          </span>
+                        </label>
+                        <SegmentedControl
+                          options={OUTCOMES}
+                          value={rowOutcomes[r.id] || 'worked'}
+                          onChange={v => setRowOutcomes(p => ({ ...p, [r.id]: v }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            ) : (
+              <div className="form-group" style={{ marginTop: 14 }}>
+                <label className="form-label">Outcome *</label>
+                <SegmentedControl options={OUTCOMES} value={form.outcome} onChange={v => set('outcome', v)} />
+              </div>
+            )}
 
             <div className="form-group" style={{ marginTop: 14 }}>
               <label className="form-label">Match Quality *</label>
               <SegmentedControl options={MATCH_QUALITY} value={form.match_quality} onChange={v => set('match_quality', v)} />
             </div>
 
-            <div className="form-group" style={{ marginTop: 14 }}>
-              <label className="expense-checkbox-label">
-                <input type="checkbox" checked={form.traded} onChange={e => set('traded', e.target.checked)} />
-                I actually traded this
-              </label>
-            </div>
+            {!batchMode && (
+              <div className="form-group" style={{ marginTop: 14 }}>
+                <label className="expense-checkbox-label">
+                  <input type="checkbox" checked={form.traded} onChange={e => set('traded', e.target.checked)} />
+                  I actually traded this
+                </label>
+              </div>
+            )}
 
-            {form.traded && (
+            {!batchMode && form.traded && (
               <div className="form-group" style={{ marginTop: 10, position: 'relative' }}>
                 <label className="form-label">Link to Trade (optional)</label>
                 <input
@@ -374,20 +482,22 @@ function ObsModal({ mode, obs, strategies, trades, defaultStratId, onSave, onClo
               </div>
             )}
 
-            <div className="form-group" style={{ marginTop: 14 }}>
-              <label className="form-label">R Multiple (R:R)</label>
-              <input
-                type="number" step="0.1" className="form-input" style={{ maxWidth: 160 }}
-                placeholder="e.g. 2.5"
-                value={form.r_multiple}
-                onChange={e => set('r_multiple', e.target.value)}
-              />
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-2)', marginTop: 4 }}>
-                {form.traded && form.trade_id
-                  ? 'Auto-filled from the linked trade — edit if you want to override it.'
-                  : 'Optional — your estimate of the R:R this setup would have achieved, based on the chart.'}
+            {!batchMode && (
+              <div className="form-group" style={{ marginTop: 14 }}>
+                <label className="form-label">R Multiple (R:R)</label>
+                <input
+                  type="number" step="0.1" className="form-input" style={{ maxWidth: 160 }}
+                  placeholder="e.g. 2.5"
+                  value={form.r_multiple}
+                  onChange={e => set('r_multiple', e.target.value)}
+                />
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-2)', marginTop: 4 }}>
+                  {form.traded && form.trade_id
+                    ? 'Auto-filled from the linked trade — edit if you want to override it.'
+                    : 'Optional — your estimate of the R:R this setup would have achieved, based on the chart.'}
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="form-group" style={{ marginTop: 14 }}>
               <label className="form-label">Notes</label>
@@ -398,7 +508,7 @@ function ObsModal({ mode, obs, strategies, trades, defaultStratId, onSave, onClo
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary">
-              {mode === 'edit' ? 'Save Changes' : 'Log Observation'}
+              {mode === 'edit' ? 'Save Changes' : batchMode ? 'Log Observations' : 'Log Observation'}
             </button>
           </div>
         </form>
@@ -987,13 +1097,19 @@ export default function StrategiesPage({
     if (obsModal.mode === 'edit') {
       await onUpdateObservation(obsModal.obs.id, data)
       setObsModal(null)
-    } else {
-      const newObs = await onAddObservation(data)
+      return
+    }
+    if (Array.isArray(data)) {
+      // Batch mode: one observation per selected strategy/variant, no screenshot prompt.
+      await Promise.all(data.map(d => onAddObservation(d)))
       setObsModal(null)
-      if (newObs?.id) {
-        const strat = strategies.find(s => s.id === data.strategy_id)
-        setObsReceipt({ id: newObs.id, name: strat?.name ?? 'observation' })
-      }
+      return
+    }
+    const newObs = await onAddObservation(data)
+    setObsModal(null)
+    if (newObs?.id) {
+      const strat = strategies.find(s => s.id === data.strategy_id)
+      setObsReceipt({ id: newObs.id, name: strat?.name ?? 'observation' })
     }
   }
 
