@@ -537,9 +537,9 @@ function StrategyCard({ strat, variants, observations, onEdit, onDelete, onAddVa
   const dowData     = buildDowData(combinedObs)
 
   const compRows = [
-    { key: strat.id, name: `${strat.name} (direct)`, status: strat.status, color: strat.color, obs: directObs },
+    { key: strat.id, name: `${strat.name} (direct)`, status: strat.status, color: strat.color, obs: directObs, isBase: true },
     ...variants
-      .map(v => ({ key: v.id, name: v.name, status: v.status, color: v.color, obs: observations.filter(o => o.strategy_id === v.id) }))
+      .map(v => ({ key: v.id, name: v.name, status: v.status, color: v.color, obs: observations.filter(o => o.strategy_id === v.id), isBase: false, variant: v }))
       .sort((a, b) => b.obs.length - a.obs.length),
   ]
 
@@ -676,6 +676,7 @@ function StrategyCard({ strat, variants, observations, onEdit, onDelete, onAddVa
                       <th>Didn't</th>
                       <th>% Worked</th>
                       <th>Avg R:R</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -701,6 +702,14 @@ function StrategyCard({ strat, variants, observations, onEdit, onDelete, onAddVa
                           </td>
                           <td className="td-mono" style={{ color: s.avgR != null ? (s.avgR >= 1 ? 'var(--green)' : 'var(--red)') : 'var(--text-2)' }}>
                             {s.avgR != null ? `${s.avgR.toFixed(2)}R` : '—'}
+                          </td>
+                          <td>
+                            {!row.isBase && (
+                              <div className="row-actions">
+                                <button className="row-action-btn" title="Edit variant" onClick={() => onEdit(row.variant)}><Edit2 size={13} /></button>
+                                <button className="row-action-btn danger" title="Delete variant" onClick={() => onDelete(row.variant.id)}><Trash2 size={13} /></button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       )
