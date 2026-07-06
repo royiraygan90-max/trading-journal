@@ -756,6 +756,13 @@ a { color: inherit; text-decoration: none; }
 .checklist-insert-line.above { top: 0; }
 .checklist-insert-line.below { bottom: 0; }
 
+.variant-row { cursor: grab; }
+.variant-row:active { cursor: grabbing; }
+.variant-drag-handle { display: flex; align-items: center; color: var(--text-2); flex-shrink: 0; }
+.variant-insert-line { position: absolute; left: 0; right: 0; height: 2px; background: var(--accent); border-radius: 1px; pointer-events: none; z-index: 1; }
+.variant-insert-line.above { top: 0; }
+.variant-insert-line.below { bottom: 0; }
+
 .checklist-add {
   display: flex;
   align-items: center;

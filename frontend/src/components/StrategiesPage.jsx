@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
   FlaskConical, Plus, Edit2, Trash2, ChevronDown, ChevronRight,
-  Paperclip, Check, X, Upload,
+  Paperclip, Check, X, Upload, GripVertical,
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { fmt } from '../utils.jsx'
@@ -497,12 +497,14 @@ function ObsReceiptModal({ obsId, intro, onDone, onChanged }) {
 }
 
 // ── Strategy Card ─────────────────────────────────────────────────────────────
-function StrategyCard({ strat, variants, observations, onEdit, onDelete, onAddVariant, onAddObs }) {
-  const [expanded,    setExpanded]    = useState(false)
-  const [images,      setImages]      = useState(null)
-  const [dragOver,    setDragOver]    = useState(false)
-  const [uploading,   setUploading]   = useState(false)
-  const [lightboxIdx, setLightboxIdx] = useState(null)
+function StrategyCard({ strat, variants, observations, onEdit, onDelete, onAddVariant, onAddObs, onReorderVariants }) {
+  const [expanded,       setExpanded]       = useState(false)
+  const [images,         setImages]         = useState(null)
+  const [dragOver,       setDragOver]       = useState(false)
+  const [uploading,      setUploading]      = useState(false)
+  const [lightboxIdx,    setLightboxIdx]    = useState(null)
+  const [draggedVarId,   setDraggedVarId]   = useState(null)
+  const [dragOverVarInfo, setDragOverVarInfo] = useState(null) // { id, position: 'above' | 'below' }
   const fileRef = useRef(null)
 
   useEffect(() => {
@@ -536,12 +538,23 @@ function StrategyCard({ strat, variants, observations, onEdit, onDelete, onAddVa
   const stats       = buildObsStats(combinedObs)
   const dowData     = buildDowData(combinedObs)
 
+  const sortedVariants = [...variants].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+
   const compRows = [
     { key: strat.id, name: `${strat.name} (direct)`, status: strat.status, color: strat.color, obs: directObs, isBase: true },
-    ...variants
-      .map(v => ({ key: v.id, name: v.name, status: v.status, color: v.color, obs: observations.filter(o => o.strategy_id === v.id), isBase: false, variant: v }))
-      .sort((a, b) => b.obs.length - a.obs.length),
+    ...sortedVariants
+      .map(v => ({ key: v.id, name: v.name, status: v.status, color: v.color, obs: observations.filter(o => o.strategy_id === v.id), isBase: false, variant: v })),
   ]
+
+  function performVariantReorder(fromId, toId, position) {
+    const ids      = sortedVariants.map(v => v.id)
+    const fromIdx  = ids.indexOf(fromId)
+    ids.splice(fromIdx, 1)
+    const toIdx    = ids.indexOf(toId)
+    const insertAt = position === 'above' ? toIdx : toIdx + 1
+    ids.splice(insertAt, 0, fromId)
+    onReorderVariants?.(ids.map(id => sortedVariants.find(v => v.id === id)))
+  }
 
   return (
     <div className="strat-card">
@@ -682,13 +695,51 @@ function StrategyCard({ strat, variants, observations, onEdit, onDelete, onAddVa
                   <tbody>
                     {compRows.map(row => {
                       const s = buildObsStats(row.obs)
+                      const isDragTarget = !row.isBase && dragOverVarInfo?.id === row.key
                       return (
-                        <tr key={row.key}>
-                          <td>
+                        <tr
+                          key={row.key}
+                          className={row.isBase ? undefined : 'variant-row'}
+                          style={row.key === draggedVarId ? { opacity: 0.4 } : undefined}
+                          draggable={!row.isBase}
+                          onDragStart={e => {
+                            if (row.isBase) return
+                            setDraggedVarId(row.key)
+                            e.dataTransfer.effectAllowed = 'move'
+                          }}
+                          onDragOver={e => {
+                            if (row.isBase || draggedVarId == null || row.key === draggedVarId) return
+                            e.preventDefault()
+                            const rect     = e.currentTarget.getBoundingClientRect()
+                            const position = (e.clientY - rect.top) < rect.height / 2 ? 'above' : 'below'
+                            setDragOverVarInfo({ id: row.key, position })
+                          }}
+                          onDragLeave={() => setDragOverVarInfo(prev => prev?.id === row.key ? null : prev)}
+                          onDrop={e => {
+                            if (row.isBase) return
+                            e.preventDefault()
+                            if (draggedVarId == null || draggedVarId === row.key) {
+                              setDraggedVarId(null); setDragOverVarInfo(null); return
+                            }
+                            performVariantReorder(draggedVarId, row.key, dragOverVarInfo?.position || 'above')
+                            setDraggedVarId(null); setDragOverVarInfo(null)
+                          }}
+                          onDragEnd={() => { setDraggedVarId(null); setDragOverVarInfo(null) }}
+                        >
+                          <td style={{ position: 'relative' }}>
+                            {isDragTarget && dragOverVarInfo.position === 'above' && (
+                              <div className="variant-insert-line above" />
+                            )}
                             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                              {!row.isBase && (
+                                <span className="variant-drag-handle"><GripVertical size={12} /></span>
+                              )}
                               <div style={{ width: 8, height: 8, borderRadius: '50%', background: row.color, flexShrink: 0 }} />
                               <span style={{ fontSize: '0.82rem', color: 'var(--text-0)' }}>{row.name}</span>
                             </div>
+                            {isDragTarget && dragOverVarInfo.position === 'below' && (
+                              <div className="variant-insert-line below" />
+                            )}
                           </td>
                           <td><StatusBadge status={row.status} /></td>
                           <td className="td-mono">{s.total}</td>
@@ -736,7 +787,7 @@ function StrategyCard({ strat, variants, observations, onEdit, onDelete, onAddVa
 }
 
 // ── Playbook view ─────────────────────────────────────────────────────────────
-function PlaybookView({ strategies, observations, onAddStrategy, onEditStrategy, onDeleteStrategy, onAddVariant, onAddObs }) {
+function PlaybookView({ strategies, observations, onAddStrategy, onEditStrategy, onDeleteStrategy, onAddVariant, onAddObs, onReorderVariants }) {
   const bases = strategies
     .filter(s => !s.parent_id)
     .sort((a, b) => a.sort_order - b.sort_order)
@@ -764,6 +815,7 @@ function PlaybookView({ strategies, observations, onAddStrategy, onEditStrategy,
               onDelete={onDeleteStrategy}
               onAddVariant={onAddVariant}
               onAddObs={onAddObs}
+              onReorderVariants={onReorderVariants}
             />
           ))}
         </div>
@@ -925,6 +977,12 @@ export default function StrategiesPage({
     }
   }
 
+  async function handleReorderVariants(orderedVariants) {
+    await Promise.all(
+      orderedVariants.map((v, i) => onUpdateStrategy(v.id, { ...v, sort_order: i }))
+    )
+  }
+
   async function handleSaveObs(data) {
     if (obsModal.mode === 'edit') {
       await onUpdateObservation(obsModal.obs.id, data)
@@ -970,6 +1028,7 @@ export default function StrategiesPage({
           onDeleteStrategy={handleDeleteStrat}
           onAddVariant={base => setStratModal({ mode: 'add', parentId: base.id })}
           onAddObs={defaultStratId => setObsModal({ mode: 'add', defaultStratId })}
+          onReorderVariants={handleReorderVariants}
         />
       )}
 
