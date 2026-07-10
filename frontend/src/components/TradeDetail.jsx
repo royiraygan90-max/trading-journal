@@ -216,11 +216,16 @@ export default function TradeDetail({
   const [uploading,      setUploading]      = useState(false)
   const [dragOver,       setDragOver]       = useState(false)
   const [lightboxIdx,    setLightboxIdx]    = useState(null)
+  const [beforeImages,      setBeforeImages]      = useState([])
+  const [beforeUploading,   setBeforeUploading]   = useState(false)
+  const [beforeDragOver,    setBeforeDragOver]    = useState(false)
+  const [beforeLightboxIdx, setBeforeLightboxIdx] = useState(null)
   const [videos,         setVideos]         = useState([])
   const [videoUploading, setVideoUploading] = useState(false)
   const [journalTags,    setJournalTags]    = useState([])
-  const fileInputRef  = useRef(null)
-  const videoInputRef = useRef(null)
+  const fileInputRef       = useRef(null)
+  const beforeFileInputRef = useRef(null)
+  const videoInputRef      = useRef(null)
 
   useEffect(() => {
     setJournal({
@@ -247,6 +252,7 @@ export default function TradeDetail({
       fetch('/api/settings').then(r => r.json()).then(s => setWeekNote(s[key] || ''))
     }
     fetch(`/api/trades/${trade.id}/images`).then(r => r.json()).then(setImages).catch(() => setImages([]))
+    fetch(`/api/trades/${trade.id}/images/before`).then(r => r.json()).then(setBeforeImages).catch(() => setBeforeImages([]))
     fetch(`/api/trades/${trade.id}/videos`).then(r => r.json()).then(setVideos).catch(() => setVideos([]))
   }, [trade.id])
 
@@ -291,6 +297,27 @@ export default function TradeDetail({
     const filename = url.split('/').pop()
     await fetch(`/api/trades/${trade.id}/images/${filename}`, { method: 'DELETE' })
     setImages(prev => prev.filter(u => u !== url))
+  }
+
+  async function uploadBeforeFiles(files) {
+    const valid = [...files].filter(f => f.size <= 8 * 1024 * 1024 && f.type.startsWith('image/'))
+    if (!valid.length) return
+    setBeforeUploading(true)
+    const fd = new FormData()
+    valid.forEach(f => fd.append('file', f))
+    try {
+      await fetch(`/api/trades/${trade.id}/images/before`, { method: 'POST', body: fd })
+      const updated = await fetch(`/api/trades/${trade.id}/images/before`).then(r => r.json())
+      setBeforeImages(updated)
+    } finally {
+      setBeforeUploading(false)
+    }
+  }
+
+  async function deleteBeforeImage(url) {
+    const filename = url.split('/').pop()
+    await fetch(`/api/trades/${trade.id}/images/before/${filename}`, { method: 'DELETE' })
+    setBeforeImages(prev => prev.filter(u => u !== url))
   }
 
   async function uploadVideo(file) {
@@ -683,7 +710,15 @@ export default function TradeDetail({
           {/* IMAGES */}
           {activeTab === 'images' && (
             <div className="tpl-images">
-              {/* hidden file input */}
+              {/* hidden file inputs */}
+              <input
+                ref={beforeFileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                multiple
+                style={{ display: 'none' }}
+                onChange={e => { uploadBeforeFiles(e.target.files); e.target.value = '' }}
+              />
               <input
                 ref={fileInputRef}
                 type="file"
@@ -693,47 +728,93 @@ export default function TradeDetail({
                 onChange={e => { uploadFiles(e.target.files); e.target.value = '' }}
               />
 
-              {/* drop zone */}
-              <div
-                className={`drop-zone${dragOver ? ' drag-over' : ''}`}
-                onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={e => { e.preventDefault(); setDragOver(false); uploadFiles(e.dataTransfer.files) }}
-              >
-                <Upload size={36} style={{ opacity: dragOver ? 0.7 : 0.3 }} />
-                <p>{uploading ? 'Uploading…' : 'Drag & drop chart screenshots here'}</p>
-                <p style={{ fontSize: '0.72rem', color: 'var(--text-2)' }}>PNG, JPG, GIF, WebP — up to 8 MB each</p>
-                <button
-                  className="btn btn-secondary"
-                  style={{ marginTop: 8 }}
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
+              {/* ── Before Trade ── */}
+              <div className="image-section">
+                <div className="image-section-header">Before Trade — what you saw pre-entry</div>
+                <div
+                  className={`drop-zone${beforeDragOver ? ' drag-over' : ''}`}
+                  onDragOver={e => { e.preventDefault(); setBeforeDragOver(true) }}
+                  onDragLeave={() => setBeforeDragOver(false)}
+                  onDrop={e => { e.preventDefault(); setBeforeDragOver(false); uploadBeforeFiles(e.dataTransfer.files) }}
                 >
-                  Browse Files
-                </button>
+                  <Upload size={36} style={{ opacity: beforeDragOver ? 0.7 : 0.3 }} />
+                  <p>{beforeUploading ? 'Uploading…' : 'Drag & drop pre-trade setup screenshots here'}</p>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-2)' }}>PNG, JPG, GIF, WebP — up to 8 MB each</p>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ marginTop: 8 }}
+                    onClick={() => beforeFileInputRef.current?.click()}
+                    disabled={beforeUploading}
+                  >
+                    Browse Files
+                  </button>
+                </div>
+
+                {beforeImages.length > 0 && (
+                  <div className="image-thumbs">
+                    {beforeImages.map((url, i) => (
+                      <div key={url} className="image-thumb">
+                        <img
+                          src={url}
+                          alt="pre-trade setup"
+                          onClick={() => setBeforeLightboxIdx(i)}
+                        />
+                        <button
+                          className="image-thumb-delete"
+                          title="Remove image"
+                          onClick={() => deleteBeforeImage(url)}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* thumbnails */}
-              {images.length > 0 && (
-                <div className="image-thumbs">
-                  {images.map((url, i) => (
-                    <div key={url} className="image-thumb">
-                      <img
-                        src={url}
-                        alt="chart screenshot"
-                        onClick={() => setLightboxIdx(i)}
-                      />
-                      <button
-                        className="image-thumb-delete"
-                        title="Remove image"
-                        onClick={() => deleteImage(url)}
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  ))}
+              {/* ── After Trade ── */}
+              <div className="image-section">
+                <div className="image-section-header">After Trade — what actually happened</div>
+                <div
+                  className={`drop-zone${dragOver ? ' drag-over' : ''}`}
+                  onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={e => { e.preventDefault(); setDragOver(false); uploadFiles(e.dataTransfer.files) }}
+                >
+                  <Upload size={36} style={{ opacity: dragOver ? 0.7 : 0.3 }} />
+                  <p>{uploading ? 'Uploading…' : 'Drag & drop chart screenshots here'}</p>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-2)' }}>PNG, JPG, GIF, WebP — up to 8 MB each</p>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ marginTop: 8 }}
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    Browse Files
+                  </button>
                 </div>
-              )}
+
+                {images.length > 0 && (
+                  <div className="image-thumbs">
+                    {images.map((url, i) => (
+                      <div key={url} className="image-thumb">
+                        <img
+                          src={url}
+                          alt="chart screenshot"
+                          onClick={() => setLightboxIdx(i)}
+                        />
+                        <button
+                          className="image-thumb-delete"
+                          title="Remove image"
+                          onClick={() => deleteImage(url)}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* ── Video Review ── */}
               <input
@@ -879,6 +960,15 @@ export default function TradeDetail({
 
         </div>
       </div>
+
+      {beforeLightboxIdx !== null && (
+        <Lightbox
+          images={beforeImages}
+          idx={beforeLightboxIdx}
+          onClose={() => setBeforeLightboxIdx(null)}
+          onNav={setBeforeLightboxIdx}
+        />
+      )}
 
       {lightboxIdx !== null && (
         <Lightbox

@@ -596,6 +596,57 @@ def serve_trade_image(trade_id, filename):
     return send_from_directory(folder, filename)
 
 
+# ── "before trade" images (setup you saw pre-entry, kept separate from the ──
+# ── original flat trade-images folder above, which now represents "after") ──
+@app.route('/api/trades/<int:trade_id>/images/before', methods=['GET'])
+def get_trade_images_before(trade_id):
+    folder = os.path.join(IMAGES_DIR, str(trade_id), 'before')
+    if not os.path.exists(folder):
+        return jsonify([])
+    files = sorted(
+        f for f in os.listdir(folder)
+        if os.path.splitext(f)[1].lower() in ALLOWED_EXTENSIONS
+    )
+    return jsonify([f'/api/images/{trade_id}/before/{f}' for f in files])
+
+
+@app.route('/api/trades/<int:trade_id>/images/before', methods=['POST'])
+def upload_trade_images_before(trade_id):
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    files = request.files.getlist('file')
+    folder = os.path.join(IMAGES_DIR, str(trade_id), 'before')
+    os.makedirs(folder, exist_ok=True)
+    saved = []
+    for f in files:
+        raw = secure_filename(f.filename or '')
+        if not raw:
+            continue
+        base, ext = os.path.splitext(raw)
+        if ext.lower() not in ALLOWED_EXTENSIONS:
+            continue
+        unique = f"{base}_{uuid.uuid4().hex[:6]}{ext}"
+        f.save(os.path.join(folder, unique))
+        saved.append(f'/api/images/{trade_id}/before/{unique}')
+    return jsonify(saved), 201
+
+
+@app.route('/api/trades/<int:trade_id>/images/before/<filename>', methods=['DELETE'])
+def delete_trade_image_before(trade_id, filename):
+    filename = os.path.basename(filename)
+    path = os.path.join(IMAGES_DIR, str(trade_id), 'before', filename)
+    if os.path.exists(path):
+        os.remove(path)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/images/<int:trade_id>/before/<filename>')
+def serve_trade_image_before(trade_id, filename):
+    filename = os.path.basename(filename)
+    folder = os.path.join(IMAGES_DIR, str(trade_id), 'before')
+    return send_from_directory(folder, filename)
+
+
 # ── trade videos ──────────────────────────────────────────────────────────────
 @app.route('/api/trades/<int:trade_id>/videos', methods=['GET'])
 def get_trade_videos(trade_id):
