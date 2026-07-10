@@ -550,7 +550,8 @@ export default function TradeDetail({
                       className="tag-add-select"
                       value=""
                       onChange={e => {
-                        if (e.target.value) setJournalTags(prev => [...prev, e.target.value])
+                        const value = e.target.value
+                        if (value) setJournalTags(prev => [...prev, value])
                         e.target.value = ''
                       }}
                     >
