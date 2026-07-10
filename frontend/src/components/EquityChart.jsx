@@ -8,12 +8,13 @@ import { fmt, getDateRange, filterTrades, buildEquityData } from '../utils.jsx'
 
 const PERIODS = ['1W', '1M', '3M', '6M', 'YTD', 'All']
 
-function CustomTooltip({ active, payload, label }) {
+function CustomTooltip({ active, payload }) {
   if (!active || !payload?.length) return null
-  const { equity, pnl } = payload[0]?.payload || {}
+  const { equity, pnl, date } = payload[0]?.payload || {}
+  const d = date ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
   return (
     <div className="custom-tooltip">
-      <div style={{ color: 'var(--text-1)', marginBottom: 4, fontSize: '0.72rem' }}>{label}</div>
+      <div style={{ color: 'var(--text-1)', marginBottom: 4, fontSize: '0.72rem' }}>{d}</div>
       <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: equity >= 0 ? 'var(--green)' : 'var(--red)' }}>
         {fmt.currency(equity)}
       </div>
@@ -33,6 +34,12 @@ export default function EquityChart({ data }) {
     return data.filter(d => d.date >= dateFrom && d.date <= dateTo)
   }, [data, period])
 
+  // Multiple trades can share the same date, so the X-axis is driven by a
+  // unique per-point index rather than the raw date value — otherwise
+  // Recharts renders a tick label at every matching (duplicate) date and
+  // they end up stacked on top of each other.
+  const indexed = useMemo(() => filtered.map((d, i) => ({ ...d, idx: i })), [filtered])
+
   const isPositive = filtered.length ? filtered[filtered.length - 1]?.equity >= 0 : true
   const color      = isPositive ? 'var(--green)' : 'var(--red)'
   const gradId     = isPositive ? 'equityGradPos'  : 'equityGradNeg'
@@ -42,17 +49,23 @@ export default function EquityChart({ data }) {
     return `$${v}`
   }
 
-  const xFormatter = (v) => {
+  const formatDate = (v) => {
     if (!v) return ''
     const d = new Date(v + 'T12:00:00')
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
+  const xFormatter = (idx) => formatDate(indexed[idx]?.date)
+
   const ticks = useMemo(() => {
-    if (filtered.length <= 1) return filtered.map(d => d.date)
-    const step = Math.max(1, Math.floor(filtered.length / 6))
-    return filtered.filter((_, i) => i % step === 0).map(d => d.date)
-  }, [filtered])
+    if (indexed.length <= 1) return indexed.map(d => d.idx)
+    const maxTicks = 6
+    const step     = Math.max(1, Math.ceil(indexed.length / maxTicks))
+    const result   = indexed.filter((_, i) => i % step === 0).map(d => d.idx)
+    const lastIdx  = indexed[indexed.length - 1].idx
+    if (result[result.length - 1] !== lastIdx) result.push(lastIdx)
+    return result
+  }, [indexed])
 
   return (
     <div className="equity-chart-card">
@@ -90,7 +103,7 @@ export default function EquityChart({ data }) {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={filtered} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
+            <AreaChart data={indexed} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="equityGradPos" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%"  stopColor="var(--green)" stopOpacity={0.25} />
@@ -103,12 +116,15 @@ export default function EquityChart({ data }) {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
               <XAxis
-                dataKey="date"
+                dataKey="idx"
+                type="number"
+                domain={['dataMin', 'dataMax']}
                 ticks={ticks}
                 tickFormatter={xFormatter}
                 tick={{ fill: 'var(--text-2)', fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
+                allowDuplicatedCategory={false}
               />
               <YAxis
                 tickFormatter={tickFormatter}
