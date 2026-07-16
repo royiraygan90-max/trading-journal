@@ -1175,9 +1175,33 @@ def import_csv():
         tick_size  = TICK_SIZES.get(symbol, 0.25)
         tick_value = tick_value_map.get(symbol, 1.0)
 
-        # FIFO position matching: pair each entry fill with the next exit fill
-        long_queue  = []   # [[price, qty, datetime]]
-        short_queue = []
+        # Position-netting: while fills keep adding to the same side (scale-ins),
+        # they accumulate into one open position (weighted-average entry) instead
+        # of becoming separate trades. A trade is only finalized once the net
+        # position returns to flat — so a Sell(1)+Sell(1) scaled into, closed by
+        # a single Buy(2), becomes ONE trade with a weighted-average entry price,
+        # not two separate round trips.
+        net_side       = None   # 'Long' or 'Short', None when flat
+        entry_qty      = 0
+        entry_notional = 0.0
+        entry_dt       = None
+        closed_qty     = 0
+        exit_notional  = 0.0
+        realized_pnl   = 0.0
+
+        def finalize_trade():
+            avg_entry = entry_notional / entry_qty
+            avg_exit  = exit_notional  / closed_qty
+            ticks = round(
+                ((avg_entry - avg_exit) if net_side == 'Short' else (avg_exit - avg_entry))
+                / tick_size
+            )
+            trades_to_insert.append({
+                'datetime': entry_dt, 'symbol': symbol, 'direction': net_side,
+                'entry': round(avg_entry, 4), 'exit': round(avg_exit, 4), 'quantity': entry_qty,
+                'ticks': ticks, 'pnl': round(realized_pnl, 2), 'commission': 0,
+                'tags': '[]', 'account_id': account_id,
+            })
 
         for order in orders:
             side = order['side']
@@ -1193,55 +1217,43 @@ def import_csv():
                 total_skipped += 1
                 continue
 
-            fill_fmt  = order['datetime']
+            fill_dt   = order['datetime']
             remaining = qty
 
-            if side == 'Buy':
-                # Close any open shorts first (FIFO)
-                while remaining > 0 and short_queue:
-                    ep, eq, edt = short_queue[0]
-                    matched = min(remaining, eq)
-                    pnl     = round((ep - price) / tick_size * tick_value * matched, 2)
-                    ticks   = round((ep - price) / tick_size)
-                    trades_to_insert.append({
-                        'datetime': edt, 'symbol': symbol, 'direction': 'Short',
-                        'entry': ep, 'exit': price, 'quantity': matched,
-                        'ticks': ticks, 'pnl': pnl, 'commission': 0,
-                        'tags': '[]', 'account_id': account_id,
-                    })
-                    remaining -= matched
-                    left = eq - matched
-                    if left > 0:
-                        short_queue[0] = [ep, left, edt]
-                    else:
-                        short_queue.pop(0)
-                if remaining > 0:
-                    long_queue.append([price, remaining, fill_fmt])
+            while remaining > 0:
+                if net_side is None:
+                    # Open a fresh position
+                    net_side       = 'Long' if side == 'Buy' else 'Short'
+                    entry_qty      = remaining
+                    entry_notional = price * remaining
+                    entry_dt       = fill_dt
+                    closed_qty     = 0
+                    exit_notional  = 0.0
+                    realized_pnl   = 0.0
+                    remaining      = 0
+                    continue
 
-            elif side == 'Sell':
-                # Close any open longs first (FIFO)
-                while remaining > 0 and long_queue:
-                    ep, eq, edt = long_queue[0]
-                    matched = min(remaining, eq)
-                    pnl     = round((price - ep) / tick_size * tick_value * matched, 2)
-                    ticks   = round((price - ep) / tick_size)
-                    trades_to_insert.append({
-                        'datetime': edt, 'symbol': symbol, 'direction': 'Long',
-                        'entry': ep, 'exit': price, 'quantity': matched,
-                        'ticks': ticks, 'pnl': pnl, 'commission': 0,
-                        'tags': '[]', 'account_id': account_id,
-                    })
-                    remaining -= matched
-                    left = eq - matched
-                    if left > 0:
-                        long_queue[0] = [ep, left, edt]
-                    else:
-                        long_queue.pop(0)
-                if remaining > 0:
-                    short_queue.append([price, remaining, fill_fmt])
+                is_adding = (side == 'Buy' and net_side == 'Long') or (side == 'Sell' and net_side == 'Short')
+                if is_adding:
+                    entry_notional += price * remaining
+                    entry_qty      += remaining
+                    remaining       = 0
+                else:
+                    open_qty = entry_qty - closed_qty
+                    matched  = min(remaining, open_qty)
+                    avg_entry_now = entry_notional / entry_qty
+                    per_unit_pnl  = (avg_entry_now - price) if net_side == 'Short' else (price - avg_entry_now)
+                    realized_pnl += per_unit_pnl / tick_size * tick_value * matched
+                    exit_notional += price * matched
+                    closed_qty    += matched
+                    remaining     -= matched
 
-        unclosed = sum(q for _, q, _ in long_queue) + sum(q for _, q, _ in short_queue)
-        if unclosed:
+                    if closed_qty >= entry_qty:
+                        finalize_trade()
+                        net_side = None   # back to flat; any leftover `remaining` opens the opposite side
+
+        if net_side is not None and closed_qty < entry_qty:
+            unclosed = entry_qty - closed_qty
             total_skipped += unclosed
             errors.append(f'{symbol}: {unclosed} contract(s) left open (no matching close)')
 
