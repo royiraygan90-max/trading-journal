@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react'
+
 // ── Formatting ──────────────────────────────────────────────────────────────
 export const fmt = {
   currency(v) {
@@ -221,4 +223,22 @@ export function getDateRange(period) {
     default:    return { dateFrom: '', dateTo: '' }
   }
   return { dateFrom: from.toISOString().slice(0, 10), dateTo: to }
+}
+
+// ── Responsive helper ─────────────────────────────────────────────────────────
+export function useIsMobile(breakpoint = 768) {
+  const query = `(max-width: ${breakpoint}px)`
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(query).matches
+  )
+
+  useEffect(() => {
+    const mql = window.matchMedia(query)
+    const onChange = () => setIsMobile(mql.matches)
+    onChange()
+    mql.addEventListener('change', onChange)
+    return () => mql.removeEventListener('change', onChange)
+  }, [query])
+
+  return isMobile
 }

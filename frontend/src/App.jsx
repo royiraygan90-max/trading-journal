@@ -69,6 +69,7 @@ export default function App() {
   const [editTrade,         setEditTrade]         = useState(null)
   const [showCustomize,     setShowCustomize]     = useState(false)
   const [sidebarCollapsed,  setSidebarCollapsed]  = useState(false)
+  const [mobileNavOpen,     setMobileNavOpen]     = useState(false)
   const [activeView,        setActiveView]        = useState('dashboard')
   const [sort,              setSort]              = useState({ key: 'datetime', dir: 'desc' })
   const [widgetOrder,       setWidgetOrder]       = useState(loadWidgetOrder)
@@ -444,6 +445,8 @@ export default function App() {
         onEditLayout={enterEditMode}
         onSaveLayout={saveLayout}
         onCancelLayout={cancelLayout}
+        activeView={activeView}
+        onToggleMobileNav={() => setMobileNavOpen(v => !v)}
       />
 
       <div className="app-body">
@@ -451,6 +454,10 @@ export default function App() {
           collapsed={sidebarCollapsed}
           activeView={activeView}
           onSetView={setActiveView}
+          mobileOpen={mobileNavOpen}
+          onCloseMobile={() => setMobileNavOpen(false)}
+          onImport={() => setShowImportModal(true)}
+          onCustomize={() => setShowCustomize(true)}
         />
 
         <main className="main-content">

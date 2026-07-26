@@ -8,7 +8,7 @@ import {
   BarChart2, PieChart as PieIcon, CheckSquare, CalendarDays,
   Flame, ChevronLeft, ChevronRight, Check, Trash2, GripVertical, RotateCcw,
 } from 'lucide-react'
-import { buildDailyPnl, buildCalendarData, buildEquityData, fmt } from '../utils.jsx'
+import { buildDailyPnl, buildCalendarData, buildEquityData, fmt, useIsMobile } from '../utils.jsx'
 import EquityChart from './EquityChart.jsx'
 
 const ResponsiveGridLayout = WidthProvider(Responsive)
@@ -422,12 +422,31 @@ export default function Widgets({
   onAddChecklistItem, onUpdateChecklistItem, onDeleteChecklistItem, onResetChecklist, onReorderChecklist,
   layout, isEditMode, onLayoutChange,
 }) {
-  const visibleIds = visibleWidgets.filter(id => WIDGET_META[id])
+  const isMobile    = useIsMobile()
+  const visibleIds  = visibleWidgets.filter(id => WIDGET_META[id])
 
-  // ── Non-dashboard views: simple CSS grid (no react-grid-layout) ──────────
-  if (!layout) {
-    const order  = widgetOrder ?? visibleWidgets
-    const active = order.filter(id => WIDGET_META[id] && visibleWidgets.includes(id))
+  // Dashboard (react-grid-layout) has no separate `widgetOrder` prop — when
+  // falling back to the stacked mobile layout for it, derive reading order
+  // from the saved grid position (top-to-bottom, left-to-right) instead.
+  const mobileLayoutOrder = useMemo(() => {
+    if (!layout) return visibleIds
+    const posOf = id => {
+      const item = layout.find(l => l.i === id)
+      return item ? [item.y, item.x] : [Infinity, Infinity]
+    }
+    return [...visibleIds].sort((a, b) => {
+      const [ay, ax] = posOf(a), [by, bx] = posOf(b)
+      return ay - by || ax - bx
+    })
+  }, [visibleIds, layout])
+
+  // ── Non-dashboard views, or dashboard on mobile: simple stacked CSS grid
+  //    (react-grid-layout's drag/resize doesn't translate to touch/narrow
+  //    viewports, so mobile always gets the plain single-column stack) ─────
+  if (!layout || isMobile) {
+    const active = layout
+      ? mobileLayoutOrder
+      : (widgetOrder ?? visibleWidgets).filter(id => WIDGET_META[id] && visibleWidgets.includes(id))
     if (active.length === 0) return null
     return (
       <div className="widgets-grid">
