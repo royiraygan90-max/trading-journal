@@ -390,12 +390,12 @@ a { color: inherit; text-decoration: none; }
 /* ── Stats bar ───────────────────────────────────────────────────────────── */
 .stats-bar {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 10px;
 }
 
-@media (max-width: 1400px) { .stats-bar { grid-template-columns: repeat(4, 1fr); } }
-@media (max-width: 900px)  { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 1400px) { .stats-bar { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 900px)  { .stats-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 .stat-card {
   background: var(--bg-2);
@@ -525,12 +525,12 @@ a { color: inherit; text-decoration: none; }
 /* ── Widgets grid ────────────────────────────────────────────────────────── */
 .widgets-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 
-@media (max-width: 1300px) { .widgets-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 800px)  { .widgets-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1300px) { .widgets-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 800px)  { .widgets-grid { grid-template-columns: minmax(0, 1fr); } }
 
 .widget-full-width { grid-column: 1 / -1; }
 
@@ -853,7 +853,7 @@ a { color: inherit; text-decoration: none; }
 
 .calendar-grid-header {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 3px;
   padding: 8px 12px 4px;
 }
@@ -870,7 +870,7 @@ a { color: inherit; text-decoration: none; }
 
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   grid-auto-rows: minmax(0, 1fr);
   gap: 3px;
   padding: 0 12px 10px;
@@ -1470,7 +1470,7 @@ tr:hover .row-actions { opacity: 1; }
 /* Emotion grid */
 .emotion-grid {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1660,7 +1660,7 @@ tr:hover .row-actions { opacity: 1; }
 }
 
 .tpl-metrics-grid {
-  grid-template-columns: repeat(3, 1fr) !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
 }
 
 .analysis-section { margin-bottom: 0; }
@@ -1676,7 +1676,7 @@ tr:hover .row-actions { opacity: 1; }
 
 .analysis-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
   background: var(--border);
   border-radius: var(--radius-lg);
@@ -2164,7 +2164,7 @@ tr:hover .row-actions { opacity: 1; }
 
 .weekly-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
   background: var(--border);
   border-radius: var(--radius-lg);
@@ -2331,13 +2331,13 @@ tr:hover .row-actions { opacity: 1; }
 /* ── Form ────────────────────────────────────────────────────────────────── */
 .form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 14px;
 }
 
-.form-grid.cols-2 { grid-template-columns: 1fr 1fr; }
-.form-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
-.form-grid.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.form-grid.cols-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.form-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.form-grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .form-group.full  { grid-column: 1 / -1; }
 
 .form-group {
@@ -3302,9 +3302,9 @@ tr:hover .row-actions { opacity: 1; }
   .tpl-analysis-left  { border-right: none; border-bottom: 1px solid var(--border); }
   .tpl-analysis-right { padding-bottom: calc(16px + var(--safe-bottom)); }
 
-  .tpl-metrics-grid { grid-template-columns: repeat(2, 1fr) !important; }
-  .emotion-grid      { grid-template-columns: repeat(4, 1fr); }
-  .weekly-stats      { grid-template-columns: repeat(2, 1fr); }
+  .tpl-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .emotion-grid      { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .weekly-stats      { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 400px) {
@@ -3333,7 +3333,7 @@ tr:hover .row-actions { opacity: 1; }
      already fit comfortably at phone width so they're left alone. */
   .form-grid.cols-3,
   .form-grid.cols-4 {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 
   /* 16px prevents iOS Safari's auto-zoom-on-focus; 44px meets the min tap target. */
@@ -3350,7 +3350,7 @@ tr:hover .row-actions { opacity: 1; }
 
 @media (max-width: 400px) {
   .form-grid, .form-grid.cols-2, .form-grid.cols-3, .form-grid.cols-4 {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -3381,8 +3381,21 @@ tr:hover .row-actions { opacity: 1; }
 
 /* ── Page header / general page-section polish ───────────────────────────── */
 @media (max-width: 768px) {
-  .main-content { padding: 14px; gap: 14px; }
+  .main-content { padding: 14px; gap: 14px; padding-bottom: calc(14px + var(--safe-bottom)); }
   .page-header  { flex-wrap: wrap; row-gap: 8px; }
+}
+
+/* ── Equity chart header: title + period tabs don't fit one row on a phone ── */
+@media (max-width: 560px) {
+  .equity-chart-header {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+  .equity-chart-tabs {
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 
 
