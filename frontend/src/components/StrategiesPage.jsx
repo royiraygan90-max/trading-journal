@@ -949,12 +949,12 @@ function LogView({ observations, strategies, trades, onAddObs, onEditObs, onDele
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, rowGap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         <select
           className="header-input symbol"
           value={filterStratId}
           onChange={e => setFilterStratId(e.target.value)}
-          style={{ minWidth: 220 }}
+          style={{ minWidth: 220, flex: '1 1 220px' }}
         >
           <option value="all">All Strategies</option>
           {flat.map(({ strat, indent }) => (

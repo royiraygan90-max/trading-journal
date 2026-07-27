@@ -72,7 +72,7 @@ function AccountRow({ account, onUpdate, onDelete }) {
 
   return (
     <div className="tag-mgmt-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, rowGap: 6, flexWrap: 'wrap' }}>
         <div className="tag-mgmt-dot" style={{ background: account.color, flexShrink: 0 }} />
         <span className="tag-mgmt-label" style={{ flex: 1 }}>
           <span style={{ fontWeight: 500 }}>{account.name}</span>

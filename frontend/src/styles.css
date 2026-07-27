@@ -36,6 +36,12 @@
   --sidebar-w:           220px;
   --sidebar-collapsed-w:  64px;
   --header-h:             56px;
+  --header-h-mobile:      52px;
+
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
 
   --radius-xs: 3px;
   --radius-sm: 5px;
@@ -52,7 +58,7 @@
 /* ── Reset ───────────────────────────────────────────────────────────────── */
 *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
 
-html { font-size:14px; }
+html { font-size:14px; -webkit-text-size-adjust: 100%; }
 
 body {
   font-family: var(--font-ui);
@@ -61,6 +67,8 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button {
@@ -68,6 +76,7 @@ button {
   cursor: pointer;
   border: none;
   background: none;
+  touch-action: manipulation;
 }
 
 input, select, textarea {
@@ -88,6 +97,7 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -104,10 +114,13 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   justify-content: center;
   height: 100vh;
+  height: 100dvh;
   background: var(--bg-0);
   color: var(--text-1);
   font-size: 0.9rem;
   gap: 12px;
+  padding: 0 20px;
+  text-align: center;
 }
 
 .spinner {
@@ -982,7 +995,9 @@ a { color: inherit; text-decoration: none; }
   background: var(--bg-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .trades-table {
@@ -3008,3 +3023,366 @@ tr:hover .row-actions { opacity: 1; }
   transition: background var(--transition);
 }
 .obs-trade-option:hover { background: var(--bg-3); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE (≤768px tablet/phone, ≤480px phone fine-tuning)
+   Targets iPhone 16 Pro (393×852 CSS px) and similar phones.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Sidebar → off-canvas drawer (base: hidden helpers) ─────────────────── */
+.sidebar-mobile-header  { display: none; }
+.sidebar-mobile-actions { display: none; }
+.sidebar-backdrop       { display: none; }
+
+@media (max-width: 768px) {
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 400;
+    animation: fadeIn 0.15s ease;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 80vw;
+    max-width: 300px;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    z-index: 410;
+    box-shadow: var(--shadow-lg);
+    padding-bottom: var(--safe-bottom);
+  }
+  .sidebar.collapsed { width: 80vw; max-width: 300px; }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar.collapsed .sidebar-label { opacity: 1; width: auto; }
+
+  .sidebar-mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    padding-top: calc(14px + var(--safe-top));
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .sidebar-nav { padding: 10px 8px; }
+  .sidebar-item { padding: 12px 10px; font-size: 0.88rem; }
+
+  .sidebar-mobile-actions { display: block; }
+  .sidebar-mobile-sep { height: 1px; background: var(--border); margin: 8px 2px; }
+}
+
+/* ── Header (base: new-element defaults) ─────────────────────────────────── */
+.header-hamburger    { display: none; }
+.header-mobile-title { display: none; }
+.header-filter-btn    { display: none; position: relative; }
+.filter-badge-dot {
+  position: absolute;
+  top: 5px; right: 5px;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 1.5px solid var(--bg-1);
+}
+
+@media (max-width: 768px) {
+  .header {
+    height: var(--header-h-mobile);
+    padding: var(--safe-top) 10px 0 0;
+    height: calc(var(--header-h-mobile) + var(--safe-top));
+    gap: 8px;
+  }
+
+  .header-hamburger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 100%;
+    flex-shrink: 0;
+    color: var(--text-1);
+  }
+  .header-hamburger:active { color: var(--text-0); }
+
+  .header-logo-btn { display: none; }
+
+  .header-mobile-title {
+    display: block;
+    flex: 1;
+    min-width: 0;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-0);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .account-switcher { display: none; }
+  .header-filters   { display: none; }
+
+  .header-actions { margin-left: 0; gap: 6px; }
+
+  .btn-edit-layout, .btn-save-layout, .btn-cancel-layout,
+  .header-desktop-only {
+    display: none;
+  }
+
+  .header-filter-btn { display: flex; }
+
+  .btn-add-trade-label { display: none; }
+  .btn-add-trade { padding: 0 10px; width: 36px; }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .btn-add-trade-label { display: inline; }
+  .btn-add-trade { width: auto; padding: 0 14px; }
+}
+
+/* ── Mobile filter sheet ──────────────────────────────────────────────────── */
+.mobile-filter-sheet {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  max-width: 480px;
+  margin: 0 auto;
+  max-height: 85dvh;
+  background: var(--bg-2);
+  border: 1px solid var(--border-bright);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  z-index: 950;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  animation: slideUpSheet 0.2s ease;
+}
+
+.mobile-filter-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+.mobile-filter-sheet .modal-footer {
+  padding-bottom: calc(14px + var(--safe-bottom));
+}
+
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* ── Trades → mobile card list (rendered only when useIsMobile() is true) ── */
+.trade-cards-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.trade-cards-toolbar .header-input { flex: 1; height: 36px; }
+
+.trade-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trade-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+.trade-card:active { background: var(--bg-3); }
+.trade-card.selected { border-color: var(--accent); background: rgba(245,185,66,0.06); }
+
+.trade-card-row1 { display: flex; align-items: center; gap: 8px; }
+
+.trade-card-symbol {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text-0);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trade-card-pnl {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-0);
+  flex-shrink: 0;
+}
+.trade-card-pnl.positive { color: var(--green); }
+.trade-card-pnl.negative { color: var(--red); }
+
+.trade-card-row2 { display: flex; align-items: center; gap: 8px; }
+
+.trade-card-actions { display: flex; gap: 4px; margin-left: auto; flex-shrink: 0; }
+
+.trade-card-row3 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.76rem;
+  color: var(--text-1);
+}
+
+.trade-card-tags { padding-top: 1px; }
+
+/* ── Trade detail panel → full-screen sheet on mobile ────────────────────── */
+@media (max-width: 768px) {
+  .trade-panel-large {
+    left: 0;
+    width: 100vw;
+    max-width: 100vw;
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+  }
+
+  .tpl-header {
+    flex-wrap: wrap;
+    position: relative;
+    align-items: flex-start;
+    padding: 14px 46px 12px 14px;
+    padding-top: calc(14px + var(--safe-top));
+    gap: 8px;
+    min-height: auto;
+  }
+  .tpl-header-left  { flex: 1 1 100%; min-width: 0; }
+  .tpl-inst         { display: none; }
+  .tpl-header-center{ flex: 1 1 100%; align-items: flex-start; }
+  .tpl-header-right {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+  .panel-close {
+    position: absolute;
+    top: calc(12px + var(--safe-top));
+    right: 12px;
+  }
+
+  .tpl-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tpl-tabs::-webkit-scrollbar { display: none; }
+  .panel-tab { white-space: nowrap; flex-shrink: 0; padding: 12px 14px; }
+
+  .tpl-journal, .tpl-images, .tpl-weekly {
+    padding: 16px 16px calc(32px + var(--safe-bottom));
+    max-width: 100%;
+  }
+
+  .tpl-analysis { flex-direction: column; }
+  .tpl-analysis-left, .tpl-analysis-right {
+    flex: 1 1 auto;
+    padding: 16px;
+  }
+  .tpl-analysis-left  { border-right: none; border-bottom: 1px solid var(--border); }
+  .tpl-analysis-right { padding-bottom: calc(16px + var(--safe-bottom)); }
+
+  .tpl-metrics-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .emotion-grid      { grid-template-columns: repeat(4, 1fr); }
+  .weekly-stats      { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 400px) {
+  .score-dot   { width: 17px; height: 17px; }
+  .score-label { width: 58px; font-size: 0.7rem; }
+  .score-value { width: 30px; }
+}
+
+/* ── Modals → bottom sheet on mobile (Add/Edit Trade, Import, etc.) ──────── */
+@media (max-width: 768px) {
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 92dvh;
+    border-radius: 16px 16px 0 0;
+    animation: slideUpSheet 0.2s ease;
+  }
+  .modal-body   { padding: 16px; }
+  .modal-footer { padding-bottom: calc(14px + var(--safe-bottom)); }
+
+  /* Collapse dense multi-column forms to 2 columns; single-field rows (cols-2)
+     already fit comfortably at phone width so they're left alone. */
+  .form-grid.cols-3,
+  .form-grid.cols-4 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* 16px prevents iOS Safari's auto-zoom-on-focus; 44px meets the min tap target. */
+  .form-input, .form-select, .form-textarea, .header-input {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .form-textarea { min-height: 72px; }
+
+  .btn:not(.btn-sm), .dir-toggle-btn, .plan-btn, .seg-btn {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 400px) {
+  .form-grid, .form-grid.cols-2, .form-grid.cols-3, .form-grid.cols-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Customize drawer ─────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .customize-drawer { padding-bottom: var(--safe-bottom); }
+  .drawer-header     { padding-top: calc(18px + var(--safe-top)); }
+}
+@media (max-width: 480px) {
+  .customize-drawer { width: 86vw; max-width: 340px; }
+}
+
+/* ── Tag / Account management rows ────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .tag-mgmt-row  { flex-wrap: wrap; row-gap: 8px; }
+  .tag-swatches  { flex-basis: 100%; }
+}
+
+/* ── Strategies page tab bar ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .strat-tab-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+  .strat-tab-btn { white-space: nowrap; flex-shrink: 0; }
+}
+
+/* ── Page header / general page-section polish ───────────────────────────── */
+@media (max-width: 768px) {
+  .main-content { padding: 14px; gap: 14px; }
+  .page-header  { flex-wrap: wrap; row-gap: 8px; }
+}
+
+
