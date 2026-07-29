@@ -1,13 +1,14 @@
 import React from 'react'
-import { Settings, TrendingUp, BarChart2, PieChart, Flame, CheckSquare, CalendarDays } from 'lucide-react'
+import { Settings, TrendingUp, BarChart2, PieChart, Flame, CheckSquare, CalendarDays, ShieldAlert } from 'lucide-react'
 
 const WIDGET_LIST = [
-  { id: 'equity_curve', label: 'Equity Curve',       icon: TrendingUp  },
-  { id: 'daily_pnl',    label: 'Daily P&L Chart',    icon: BarChart2   },
-  { id: 'win_rate',     label: 'Win Rate',            icon: PieChart    },
-  { id: 'streak',       label: 'Streaks',             icon: Flame       },
-  { id: 'checklist',    label: 'Pre-Trade Checklist', icon: CheckSquare },
-  { id: 'calendar',     label: 'Trade Calendar',      icon: CalendarDays},
+  { id: 'trading_rules', label: 'Trading Rules',      icon: ShieldAlert },
+  { id: 'equity_curve',  label: 'Equity Curve',       icon: TrendingUp  },
+  { id: 'daily_pnl',     label: 'Daily P&L Chart',    icon: BarChart2   },
+  { id: 'win_rate',      label: 'Win Rate',            icon: PieChart    },
+  { id: 'streak',        label: 'Streaks',             icon: Flame       },
+  { id: 'checklist',     label: 'Pre-Trade Checklist', icon: CheckSquare },
+  { id: 'calendar',      label: 'Trade Calendar',      icon: CalendarDays},
 ]
 
 function Toggle({ on, onClick }) {

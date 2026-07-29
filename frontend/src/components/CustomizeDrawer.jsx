@@ -1,16 +1,17 @@
 import React, { useState } from 'react'
 import {
   X, BarChart2, PieChart, Flame, CheckSquare, CalendarDays,
-  TrendingUp, GripVertical,
+  TrendingUp, GripVertical, ShieldAlert,
 } from 'lucide-react'
 
 const WIDGET_DEFS = {
-  equity_curve: { label: 'Equity Curve',       icon: TrendingUp   },
-  daily_pnl:    { label: 'Daily P&L Chart',    icon: BarChart2    },
-  win_rate:     { label: 'Win Rate',            icon: PieChart     },
-  streak:       { label: 'Streaks',             icon: Flame        },
-  checklist:    { label: 'Pre-Trade Checklist', icon: CheckSquare  },
-  calendar:     { label: 'Trade Calendar',      icon: CalendarDays },
+  trading_rules: { label: 'Trading Rules',      icon: ShieldAlert  },
+  equity_curve:  { label: 'Equity Curve',       icon: TrendingUp   },
+  daily_pnl:     { label: 'Daily P&L Chart',    icon: BarChart2    },
+  win_rate:      { label: 'Win Rate',            icon: PieChart     },
+  streak:        { label: 'Streaks',             icon: Flame        },
+  checklist:     { label: 'Pre-Trade Checklist', icon: CheckSquare  },
+  calendar:      { label: 'Trade Calendar',      icon: CalendarDays },
 }
 
 function Toggle({ on, onClick }) {

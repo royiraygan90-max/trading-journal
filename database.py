@@ -81,6 +81,13 @@ def init_db():
             sort_order INTEGER DEFAULT 0
         );
 
+        CREATE TABLE IF NOT EXISTS trading_rules (
+            id         TEXT PRIMARY KEY,
+            text       TEXT,
+            done       INTEGER DEFAULT 0,
+            sort_order INTEGER DEFAULT 0
+        );
+
         CREATE TABLE IF NOT EXISTS settings (
             key   TEXT PRIMARY KEY,
             value TEXT
@@ -173,16 +180,41 @@ def init_db():
         ]
         c.executemany('INSERT INTO checklist VALUES (?,?,?,?)', default_checklist)
 
+    # Seed trading rules
+    c.execute('SELECT COUNT(*) FROM trading_rules')
+    if c.fetchone()[0] == 0:
+        default_rules = [
+            ('rule_1', 'Daily profit target: $1,000 — once hit, stop trading',        0, 1),
+            ('rule_2', 'Max daily loss: $300 — once hit, stop trading',               0, 2),
+            ('rule_3', 'No trading on FOMC / interest rate decision days',            0, 3),
+        ]
+        c.executemany('INSERT INTO trading_rules VALUES (?,?,?,?)', default_rules)
+
     # Seed settings
     default_settings = [
         ('visible_widgets',
-         json.dumps(['equity_curve', 'daily_pnl', 'win_rate',
+         json.dumps(['trading_rules', 'equity_curve', 'daily_pnl', 'win_rate',
                      'checklist', 'calendar', 'streak'])),
         ('theme',          'dark'),
         ('default_symbol', 'ES'),
     ]
     for key, value in default_settings:
         c.execute('INSERT OR IGNORE INTO settings VALUES (?,?)', (key, value))
+
+    # Existing installs already have a 'visible_widgets' setting row (the
+    # INSERT OR IGNORE above won't touch it), so the new widget needs to be
+    # merged in explicitly or it stays hidden until manually enabled.
+    row = c.execute("SELECT value FROM settings WHERE key='visible_widgets'").fetchone()
+    if row:
+        try:
+            widgets = json.loads(row[0])
+            if isinstance(widgets, list) and 'trading_rules' not in widgets:
+                c.execute(
+                    "UPDATE settings SET value=? WHERE key='visible_widgets'",
+                    (json.dumps(['trading_rules'] + widgets),)
+                )
+        except (TypeError, ValueError):
+            pass
 
     # Add journal columns to existing DBs (idempotent)
     journal_cols = [

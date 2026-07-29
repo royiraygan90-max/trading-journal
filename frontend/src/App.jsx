@@ -17,7 +17,7 @@ import StrategiesPage  from './components/StrategiesPage.jsx'
 import SettingsPage    from './components/SettingsPage.jsx'
 import { calculateStats, filterTrades, buildEquityData } from './utils.jsx'
 
-const DEFAULT_WIDGET_ORDER = ['equity_curve', 'daily_pnl', 'win_rate', 'streak', 'checklist', 'calendar']
+const DEFAULT_WIDGET_ORDER = ['trading_rules', 'equity_curve', 'daily_pnl', 'win_rate', 'streak', 'checklist', 'calendar']
 
 function loadWidgetOrder() {
   try {
@@ -28,12 +28,13 @@ function loadWidgetOrder() {
 }
 
 const DEFAULT_LAYOUT = [
-  { i: 'equity_curve', x: 0, y: 0,  w: 12, h: 5, minW: 4, minH: 3 },
-  { i: 'daily_pnl',    x: 0, y: 5,  w: 4,  h: 4, minW: 3, minH: 3 },
-  { i: 'win_rate',     x: 4, y: 5,  w: 4,  h: 4, minW: 3, minH: 3 },
-  { i: 'streak',       x: 8, y: 5,  w: 4,  h: 4, minW: 3, minH: 3 },
-  { i: 'checklist',    x: 0, y: 9,  w: 6,  h: 7, minW: 3, minH: 4 },
-  { i: 'calendar',     x: 6, y: 9,  w: 6,  h: 7, minW: 4, minH: 6 },
+  { i: 'trading_rules', x: 0, y: 0,  w: 12, h: 4, minW: 4, minH: 3 },
+  { i: 'equity_curve',  x: 0, y: 4,  w: 12, h: 5, minW: 4, minH: 3 },
+  { i: 'daily_pnl',     x: 0, y: 9,  w: 4,  h: 4, minW: 3, minH: 3 },
+  { i: 'win_rate',      x: 4, y: 9,  w: 4,  h: 4, minW: 3, minH: 3 },
+  { i: 'streak',        x: 8, y: 9,  w: 4,  h: 4, minW: 3, minH: 3 },
+  { i: 'checklist',     x: 0, y: 13, w: 6,  h: 7, minW: 3, minH: 4 },
+  { i: 'calendar',      x: 6, y: 13, w: 6,  h: 7, minW: 4, minH: 6 },
 ]
 
 function loadLayout() {
@@ -51,6 +52,7 @@ export default function App() {
   const [allTags,           setAllTags]           = useState([])
   const [accounts,          setAccounts]          = useState([])
   const [checklist,         setChecklist]         = useState([])
+  const [rules,             setRules]             = useState([])
   const [expenses,          setExpenses]          = useState([])
   const [strategies,        setStrategies]        = useState([])
   const [observations,      setObservations]      = useState([])
@@ -88,17 +90,19 @@ export default function App() {
       fetch('/api/instruments').then(r => r.json()),
       fetch('/api/tags').then(r => r.json()),
       fetch('/api/checklist').then(r => r.json()),
+      fetch('/api/rules').then(r => r.json()),
       fetch('/api/settings').then(r => r.json()),
       fetch('/api/accounts').then(r => r.json()),
       fetch('/api/expenses').then(r => r.json()),
       fetch('/api/strategies').then(r => r.json()),
       fetch('/api/observations').then(r => r.json()),
     ])
-      .then(([t, instr, tags, cl, sett, accs, exps, strats, obs]) => {
+      .then(([t, instr, tags, cl, rl, sett, accs, exps, strats, obs]) => {
         setTrades(t)
         setInstruments(instr)
         setAllTags(tags)
         setChecklist(cl)
+        setRules(rl)
         setSettings(sett)
         setAccounts(accs)
         setExpenses(exps)
@@ -364,6 +368,52 @@ export default function App() {
     )
   }, [])
 
+  const refetchRules = useCallback(async () => {
+    const r = await fetch('/api/rules')
+    setRules(await r.json())
+  }, [])
+
+  const addRule = useCallback(async (text) => {
+    await fetch('/api/rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    })
+    refetchRules()
+  }, [refetchRules])
+
+  const updateRule = useCallback(async (id, data) => {
+    await fetch(`/api/rules/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    refetchRules()
+  }, [refetchRules])
+
+  const deleteRule = useCallback(async (id) => {
+    await fetch(`/api/rules/${id}`, { method: 'DELETE' })
+    setRules(prev => prev.filter(i => i.id !== id))
+  }, [])
+
+  const resetRule = useCallback(async () => {
+    const r = await fetch('/api/rules/reset', { method: 'POST' })
+    setRules(await r.json())
+  }, [])
+
+  const reorderRule = useCallback(async (newOrderedItems) => {
+    setRules(newOrderedItems)
+    await Promise.all(
+      newOrderedItems.map((item, i) =>
+        fetch(`/api/rules/${item.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...item, sort_order: i }),
+        })
+      )
+    )
+  }, [])
+
   const toggleWidget = useCallback((id) => {
     const next = visibleWidgets.includes(id)
       ? visibleWidgets.filter(w => w !== id)
@@ -479,6 +529,12 @@ export default function App() {
                 onDeleteChecklistItem={deleteChecklistItem}
                 onResetChecklist={resetChecklist}
                 onReorderChecklist={reorderChecklist}
+                rules={rules}
+                onAddRule={addRule}
+                onUpdateRule={updateRule}
+                onDeleteRule={deleteRule}
+                onResetRule={resetRule}
+                onReorderRule={reorderRule}
                 layout={workingLayout}
                 isEditMode={isEditMode}
                 onLayoutChange={handleLayoutChange}
