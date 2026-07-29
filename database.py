@@ -191,9 +191,11 @@ def init_db():
         c.executemany('INSERT INTO trading_rules VALUES (?,?,?,?)', default_rules)
 
     # Seed settings
+    # (daily_pnl is left out of the default view — it's redundant with the
+    # calendar widget, which already breaks P&L down by day)
     default_settings = [
         ('visible_widgets',
-         json.dumps(['trading_rules', 'equity_curve', 'daily_pnl', 'win_rate',
+         json.dumps(['trading_rules', 'equity_curve', 'win_rate',
                      'checklist', 'calendar', 'streak'])),
         ('theme',          'dark'),
         ('default_symbol', 'ES'),
@@ -202,17 +204,26 @@ def init_db():
         c.execute('INSERT OR IGNORE INTO settings VALUES (?,?)', (key, value))
 
     # Existing installs already have a 'visible_widgets' setting row (the
-    # INSERT OR IGNORE above won't touch it), so the new widget needs to be
-    # merged in explicitly or it stays hidden until manually enabled.
+    # INSERT OR IGNORE above won't touch it), so widget-set changes need to
+    # be merged into it explicitly or they never reach installs that
+    # predate the change.
     row = c.execute("SELECT value FROM settings WHERE key='visible_widgets'").fetchone()
     if row:
         try:
             widgets = json.loads(row[0])
-            if isinstance(widgets, list) and 'trading_rules' not in widgets:
-                c.execute(
-                    "UPDATE settings SET value=? WHERE key='visible_widgets'",
-                    (json.dumps(['trading_rules'] + widgets),)
-                )
+            if isinstance(widgets, list):
+                changed = False
+                if 'trading_rules' not in widgets:
+                    widgets = ['trading_rules'] + widgets
+                    changed = True
+                if 'daily_pnl' in widgets:
+                    widgets = [w for w in widgets if w != 'daily_pnl']
+                    changed = True
+                if changed:
+                    c.execute(
+                        "UPDATE settings SET value=? WHERE key='visible_widgets'",
+                        (json.dumps(widgets),)
+                    )
         except (TypeError, ValueError):
             pass
 
