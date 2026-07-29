@@ -17,32 +17,62 @@ import StrategiesPage  from './components/StrategiesPage.jsx'
 import SettingsPage    from './components/SettingsPage.jsx'
 import { calculateStats, filterTrades, buildEquityData } from './utils.jsx'
 
-const DEFAULT_WIDGET_ORDER = ['trading_rules', 'equity_curve', 'daily_pnl', 'win_rate', 'streak', 'checklist', 'calendar']
+const DEFAULT_WIDGET_ORDER = ['equity_curve', 'trading_rules', 'win_rate', 'streak', 'checklist', 'calendar', 'daily_pnl']
 
 function loadWidgetOrder() {
+  let saved = null
   try {
-    const saved = JSON.parse(localStorage.getItem('widget_order'))
-    if (Array.isArray(saved) && saved.length > 0) return saved
+    const parsed = JSON.parse(localStorage.getItem('widget_order'))
+    if (Array.isArray(parsed) && parsed.length > 0) saved = parsed
   } catch {}
-  return DEFAULT_WIDGET_ORDER
+  if (!saved) return DEFAULT_WIDGET_ORDER
+  // A custom order saved before a widget existed won't list it at all
+  // (it'd be missing from the Customize Dashboard drawer) — append any
+  // newly-known widgets rather than silently dropping them.
+  const missing = DEFAULT_WIDGET_ORDER.filter(id => !saved.includes(id))
+  return missing.length > 0 ? [...saved, ...missing] : saved
 }
 
+// Trading Rules sits where Daily P&L used to (redundant with the calendar's
+// own per-day P&L, so it's off by default — still selectable in Settings).
 const DEFAULT_LAYOUT = [
-  { i: 'trading_rules', x: 0, y: 0,  w: 12, h: 4, minW: 4, minH: 3 },
-  { i: 'equity_curve',  x: 0, y: 4,  w: 12, h: 5, minW: 4, minH: 3 },
-  { i: 'daily_pnl',     x: 0, y: 9,  w: 4,  h: 4, minW: 3, minH: 3 },
-  { i: 'win_rate',      x: 4, y: 9,  w: 4,  h: 4, minW: 3, minH: 3 },
-  { i: 'streak',        x: 8, y: 9,  w: 4,  h: 4, minW: 3, minH: 3 },
-  { i: 'checklist',     x: 0, y: 13, w: 6,  h: 7, minW: 3, minH: 4 },
-  { i: 'calendar',      x: 6, y: 13, w: 6,  h: 7, minW: 4, minH: 6 },
+  { i: 'equity_curve',  x: 0, y: 0,  w: 12, h: 5, minW: 4, minH: 3 },
+  { i: 'trading_rules', x: 0, y: 5,  w: 4,  h: 4, minW: 3, minH: 3 },
+  { i: 'win_rate',      x: 4, y: 5,  w: 4,  h: 4, minW: 3, minH: 3 },
+  { i: 'streak',        x: 8, y: 5,  w: 4,  h: 4, minW: 3, minH: 3 },
+  { i: 'checklist',     x: 0, y: 9,  w: 6,  h: 7, minW: 3, minH: 4 },
+  { i: 'calendar',      x: 6, y: 9,  w: 6,  h: 7, minW: 4, minH: 6 },
+  { i: 'daily_pnl',     x: 0, y: 16, w: 4,  h: 4, minW: 3, minH: 3 },
 ]
 
+// A browser that already has a saved layout from before a widget existed
+// has no grid position for it, and react-grid-layout falls back to a
+// degenerate auto-placed 1x1 box for anything missing — merge new widgets
+// in explicitly instead of letting that happen.
 function loadLayout() {
+  let saved = null
   try {
-    const saved = JSON.parse(localStorage.getItem('dashboard_layout'))
-    if (Array.isArray(saved) && saved.length > 0) return saved
+    const parsed = JSON.parse(localStorage.getItem('dashboard_layout'))
+    if (Array.isArray(parsed) && parsed.length > 0) saved = parsed
   } catch {}
-  return DEFAULT_LAYOUT
+  if (!saved) return DEFAULT_LAYOUT
+
+  let merged = saved
+  if (!merged.some(l => l.i === 'trading_rules')) {
+    // Take over daily_pnl's old slot when upgrading a layout saved before
+    // trading_rules existed (it replaces daily_pnl on the dashboard).
+    const oldSlot = merged.find(l => l.i === 'daily_pnl')
+    merged = [
+      ...merged,
+      oldSlot ? { ...oldSlot, i: 'trading_rules' } : DEFAULT_LAYOUT.find(l => l.i === 'trading_rules'),
+    ]
+  }
+  const stillMissing = DEFAULT_LAYOUT.filter(d => !merged.some(m => m.i === d.i))
+  if (stillMissing.length > 0) {
+    const maxY = merged.reduce((m, item) => Math.max(m, item.y + item.h), 0)
+    merged = [...merged, ...stillMissing.map((d, idx) => ({ ...d, y: maxY + idx * d.h }))]
+  }
+  return merged
 }
 
 export default function App() {
