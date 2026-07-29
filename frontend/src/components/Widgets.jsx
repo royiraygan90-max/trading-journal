@@ -7,6 +7,7 @@ import {
 import {
   BarChart2, PieChart as PieIcon, CheckSquare, CalendarDays,
   Flame, ChevronLeft, ChevronRight, Check, Trash2, GripVertical, RotateCcw,
+  ShieldAlert,
 } from 'lucide-react'
 import { buildDailyPnl, buildCalendarData, buildEquityData, fmt, useIsMobile } from '../utils.jsx'
 import EquityChart from './EquityChart.jsx'
@@ -187,8 +188,8 @@ function StreakWidget({ trades }) {
   )
 }
 
-// ── Checklist widget ──────────────────────────────────────────────────────────
-function ChecklistWidget({ checklist, onAdd, onUpdate, onDelete, onReset, onReorder }) {
+// ── Sortable checklist-style widget (shared by Pre-Trade Checklist & Trading Rules) ──
+function SortableListWidget({ icon: Icon, title, placeholder, items, onAdd, onUpdate, onDelete, onReset, onReorder }) {
   const [newText,      setNewText]      = useState('')
   const [draggedId,    setDraggedId]    = useState(null)
   const [dragOverInfo, setDragOverInfo] = useState(null) // { id, position: 'above' | 'below' }
@@ -201,27 +202,27 @@ function ChecklistWidget({ checklist, onAdd, onUpdate, onDelete, onReset, onReor
   }
 
   function performReorder(fromId, toId, position) {
-    const items    = [...checklist]
-    const fromIdx  = items.findIndex(i => i.id === fromId)
-    const [dragged] = items.splice(fromIdx, 1)
-    const toIdx    = items.findIndex(i => i.id === toId)
+    const list     = [...items]
+    const fromIdx  = list.findIndex(i => i.id === fromId)
+    const [dragged] = list.splice(fromIdx, 1)
+    const toIdx    = list.findIndex(i => i.id === toId)
     const insertAt = position === 'above' ? toIdx : toIdx + 1
-    items.splice(insertAt, 0, dragged)
-    onReorder(items)
+    list.splice(insertAt, 0, dragged)
+    onReorder(list)
   }
 
   return (
     <div className="card checklist-widget">
       <div className="card-header">
-        <div className="card-title"><CheckSquare size={14} />Pre-Trade Checklist</div>
+        <div className="card-title"><Icon size={14} />{title}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span className="text-muted text-sm">
-            {checklist.filter(i => i.done).length}/{checklist.length}
+            {items.filter(i => i.done).length}/{items.length}
           </span>
-          {checklist.some(i => i.done) && (
+          {items.some(i => i.done) && (
             <button
               className="checklist-reset-btn"
-              title="Reset checklist"
+              title={`Reset ${title.toLowerCase()}`}
               onClick={onReset}
             >
               <RotateCcw size={12} />
@@ -230,7 +231,7 @@ function ChecklistWidget({ checklist, onAdd, onUpdate, onDelete, onReset, onReor
         </div>
       </div>
       <div className="checklist-list">
-        {checklist.map(item => (
+        {items.map(item => (
           <div
             key={item.id}
             className="checklist-item"
@@ -266,7 +267,7 @@ function ChecklistWidget({ checklist, onAdd, onUpdate, onDelete, onReset, onReor
               className={`checklist-checkbox${item.done ? ' checked' : ''}`}
               onClick={() => onUpdate(item.id, { ...item, done: item.done ? 0 : 1 })}
             >
-              {item.done && <Check size={10} color="var(--green)" />}
+              {!!item.done && <Check size={10} color="var(--green)" />}
             </button>
             <span className={`checklist-text${item.done ? ' done' : ''}`}>{item.text}</span>
             <button className="checklist-delete" onClick={() => onDelete(item.id)}>
@@ -281,7 +282,7 @@ function ChecklistWidget({ checklist, onAdd, onUpdate, onDelete, onReset, onReor
       <div className="checklist-add">
         <input
           className="checklist-add-input"
-          placeholder="Add checklist item…"
+          placeholder={placeholder}
           value={newText}
           onChange={e => setNewText(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleAdd()}
@@ -289,6 +290,30 @@ function ChecklistWidget({ checklist, onAdd, onUpdate, onDelete, onReset, onReor
         <button className="checklist-add-btn" onClick={handleAdd}>+</button>
       </div>
     </div>
+  )
+}
+
+function ChecklistWidget({ checklist, onAdd, onUpdate, onDelete, onReset, onReorder }) {
+  return (
+    <SortableListWidget
+      icon={CheckSquare} title="Pre-Trade Checklist" placeholder="Add checklist item…"
+      items={checklist} onAdd={onAdd} onUpdate={onUpdate} onDelete={onDelete}
+      onReset={onReset} onReorder={onReorder}
+    />
+  )
+}
+
+// ── Trading rules widget ────────────────────────────────────────────────────
+// Personal discipline rules to read & acknowledge before trading (profit
+// target, max daily loss, no-trade days…) — distinct from the task-oriented
+// checklist above, but reuses the same sortable/checkable list UI.
+function RulesWidget({ rules, onAddRule, onUpdateRule, onDeleteRule, onResetRule, onReorderRule }) {
+  return (
+    <SortableListWidget
+      icon={ShieldAlert} title="Trading Rules" placeholder="Add a rule…"
+      items={rules} onAdd={onAddRule} onUpdate={onUpdateRule} onDelete={onDeleteRule}
+      onReset={onResetRule} onReorder={onReorderRule}
+    />
   )
 }
 
@@ -408,18 +433,20 @@ function EquityCurveWidget({ trades }) {
 
 // ── Widgets container ─────────────────────────────────────────────────────────
 const WIDGET_META = {
-  equity_curve: { label: 'Equity Curve',       component: EquityCurveWidget, fullWidth: true },
-  daily_pnl:    { label: 'Daily P&L',          component: DailyPnlWidget },
-  win_rate:     { label: 'Win Rate',            component: WinRateWidget },
-  streak:       { label: 'Streaks',             component: StreakWidget },
-  checklist:    { label: 'Pre-Trade Checklist', component: ChecklistWidget },
-  calendar:     { label: 'Trade Calendar',      component: CalendarWidget },
+  trading_rules: { label: 'Trading Rules',      component: RulesWidget,      fullWidth: true },
+  equity_curve:  { label: 'Equity Curve',       component: EquityCurveWidget, fullWidth: true },
+  daily_pnl:     { label: 'Daily P&L',          component: DailyPnlWidget },
+  win_rate:      { label: 'Win Rate',            component: WinRateWidget },
+  streak:        { label: 'Streaks',             component: StreakWidget },
+  checklist:     { label: 'Pre-Trade Checklist', component: ChecklistWidget },
+  calendar:      { label: 'Trade Calendar',      component: CalendarWidget },
 }
 
 export default function Widgets({
   visibleWidgets, widgetOrder,
-  trades, checklist,
+  trades, checklist, rules,
   onAddChecklistItem, onUpdateChecklistItem, onDeleteChecklistItem, onResetChecklist, onReorderChecklist,
+  onAddRule, onUpdateRule, onDeleteRule, onResetRule, onReorderRule,
   layout, isEditMode, onLayoutChange,
 }) {
   const isMobile    = useIsMobile()
@@ -462,6 +489,12 @@ export default function Widgets({
                 onDelete={onDeleteChecklistItem}
                 onReset={onResetChecklist}
                 onReorder={onReorderChecklist}
+                rules={rules}
+                onAddRule={onAddRule}
+                onUpdateRule={onUpdateRule}
+                onDeleteRule={onDeleteRule}
+                onResetRule={onResetRule}
+                onReorderRule={onReorderRule}
               />
 
             </div>
@@ -506,6 +539,12 @@ export default function Widgets({
                 onDelete={onDeleteChecklistItem}
                 onReset={onResetChecklist}
                 onReorder={onReorderChecklist}
+                rules={rules}
+                onAddRule={onAddRule}
+                onUpdateRule={onUpdateRule}
+                onDeleteRule={onDeleteRule}
+                onResetRule={onResetRule}
+                onReorderRule={onReorderRule}
               />
             </div>
           )

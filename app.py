@@ -482,6 +482,79 @@ def reset_checklist():
     return jsonify([row_to_dict(r) for r in rows])
 
 
+# ── trading rules ────────────────────────────────────────────────────────────
+@app.route('/api/rules', methods=['GET'])
+def get_rules():
+    db   = get_db()
+    rows = db.execute(
+        'SELECT * FROM trading_rules ORDER BY sort_order'
+    ).fetchall()
+    db.close()
+    return jsonify([row_to_dict(r) for r in rows])
+
+
+@app.route('/api/rules', methods=['POST'])
+def add_rule():
+    data = request.get_json()
+    item_id = 'rule_' + uuid.uuid4().hex[:8]
+    db = get_db()
+    max_order = db.execute(
+        'SELECT COALESCE(MAX(sort_order),0) FROM trading_rules'
+    ).fetchone()[0]
+    db.execute('INSERT INTO trading_rules VALUES (?,?,?,?)',
+               (item_id, data.get('text', ''), 0, max_order + 1))
+    db.commit()
+    row = db.execute('SELECT * FROM trading_rules WHERE id=?', (item_id,)).fetchone()
+    db.close()
+    return jsonify(row_to_dict(row)), 201
+
+
+@app.route('/api/rules/<item_id>', methods=['PUT'])
+def update_rule(item_id):
+    data = request.get_json()
+    db   = get_db()
+    existing = db.execute('SELECT * FROM trading_rules WHERE id=?', (item_id,)).fetchone()
+    if existing is None:
+        db.close()
+        return jsonify({'error': 'Not found'}), 404
+
+    def g(name):
+        return data[name] if name in data else existing[name]
+
+    db.execute('''
+        UPDATE trading_rules SET text=:text, done=:done, sort_order=:sort_order
+        WHERE id=:id
+    ''', {
+        'id':         item_id,
+        'text':       g('text'),
+        'done':       int(g('done') or 0),
+        'sort_order': g('sort_order'),
+    })
+    db.commit()
+    row = db.execute('SELECT * FROM trading_rules WHERE id=?', (item_id,)).fetchone()
+    db.close()
+    return jsonify(row_to_dict(row))
+
+
+@app.route('/api/rules/<item_id>', methods=['DELETE'])
+def delete_rule(item_id):
+    db = get_db()
+    db.execute('DELETE FROM trading_rules WHERE id=?', (item_id,))
+    db.commit()
+    db.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/rules/reset', methods=['POST'])
+def reset_rules():
+    db = get_db()
+    db.execute('UPDATE trading_rules SET done=0')
+    db.commit()
+    rows = db.execute('SELECT * FROM trading_rules ORDER BY sort_order').fetchall()
+    db.close()
+    return jsonify([row_to_dict(r) for r in rows])
+
+
 # ── settings ─────────────────────────────────────────────────────────────────
 @app.route('/api/settings', methods=['GET'])
 def get_settings():
