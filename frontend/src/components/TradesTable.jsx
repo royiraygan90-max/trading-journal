@@ -173,7 +173,7 @@ export default function TradesTable({
                       <div className="trade-card-preview">
                         {preview.map(p => (
                           <div key={p.key} className="trade-card-preview-part">
-                            <span className="trade-card-preview-label">{p.label}</span>
+                            <span className={`trade-card-preview-label ${p.key}`}>{p.label}</span>
                             {p.text}
                           </div>
                         ))}
@@ -330,7 +330,7 @@ export default function TradesTable({
                       <td colSpan={COLUMNS.length} className="trade-preview-cell">
                         {preview.map(p => (
                           <span key={p.key} className="trade-preview-part">
-                            <span className="trade-preview-label">{p.label}</span>
+                            <span className={`trade-preview-label ${p.key}`}>{p.label}</span>
                             {p.text}
                           </span>
                         ))}
