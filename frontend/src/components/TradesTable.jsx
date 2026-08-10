@@ -31,6 +31,13 @@ function SortIcon({ col, sort }) {
     : <span className="sort-icon active"><ChevronDown size={10} /></span>
 }
 
+function getPreviewParts(trade) {
+  const parts = []
+  if (trade.plan)      parts.push({ key: 'plan',      label: 'Plan',      text: trade.plan })
+  if (trade.execution) parts.push({ key: 'execution', label: 'Execution', text: trade.execution })
+  return parts
+}
+
 export default function TradesTable({
   trades, allTags, instruments, accounts,
   selectedTrade, onSelectTrade,
@@ -109,6 +116,7 @@ export default function TradesTable({
                 const pnlCls = isWin ? 'positive' : isLoss ? 'negative' : ''
                 const acc    = getAccountMeta(trade.account_id)
                 const selected = selectedTrade?.id === trade.id
+                const preview = getPreviewParts(trade)
 
                 return (
                   <div
@@ -160,6 +168,17 @@ export default function TradesTable({
                         {trade.r_multiple != null ? fmt.r(trade.r_multiple) : '—'}
                       </span>
                     </div>
+
+                    {preview.length > 0 && (
+                      <div className="trade-card-preview">
+                        {preview.map(p => (
+                          <div key={p.key} className="trade-card-preview-part">
+                            <span className="trade-card-preview-label">{p.label}</span>
+                            {p.text}
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     {tags.length > 0 && (
                       <div className="tags-cell trade-card-tags">
@@ -218,11 +237,12 @@ export default function TradesTable({
                 const isLoss  = trade.pnl < 0
                 const isLong  = trade.direction === 'Long'
                 const selected = selectedTrade?.id === trade.id
+                const preview = getPreviewParts(trade)
 
                 return (
+                  <React.Fragment key={trade.id}>
                   <tr
-                    key={trade.id}
-                    className={selected ? 'selected' : ''}
+                    className={`${selected ? 'selected' : ''}${preview.length ? ' has-preview' : ''}`}
                     onClick={() => onSelectTrade(selected ? null : trade)}
                   >
                     <td className="td-date">{fmt.datetime(trade.datetime)}</td>
@@ -302,6 +322,22 @@ export default function TradesTable({
                       </div>
                     </td>
                   </tr>
+                  {preview.length > 0 && (
+                    <tr
+                      className={`trade-preview-row${selected ? ' selected' : ''}`}
+                      onClick={() => onSelectTrade(selected ? null : trade)}
+                    >
+                      <td colSpan={COLUMNS.length} className="trade-preview-cell">
+                        {preview.map(p => (
+                          <span key={p.key} className="trade-preview-part">
+                            <span className="trade-preview-label">{p.label}</span>
+                            {p.text}
+                          </span>
+                        ))}
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 )
               })}
             </tbody>
