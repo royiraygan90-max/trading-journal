@@ -14,6 +14,7 @@ import TagsPage        from './components/TagsPage.jsx'
 import AccountsPage    from './components/AccountsPage.jsx'
 import BusinessPage    from './components/BusinessPage.jsx'
 import StrategiesPage  from './components/StrategiesPage.jsx'
+import LearningPage    from './components/LearningPage.jsx'
 import SettingsPage    from './components/SettingsPage.jsx'
 import { calculateStats, filterTrades, buildEquityData } from './utils.jsx'
 
@@ -86,6 +87,7 @@ export default function App() {
   const [expenses,          setExpenses]          = useState([])
   const [strategies,        setStrategies]        = useState([])
   const [observations,      setObservations]      = useState([])
+  const [learningTopics,    setLearningTopics]    = useState([])
   const [settings,          setSettings]          = useState({})
   const [loading,           setLoading]           = useState(true)
   const [error,             setError]             = useState(null)
@@ -126,8 +128,9 @@ export default function App() {
       fetch('/api/expenses').then(r => r.json()),
       fetch('/api/strategies').then(r => r.json()),
       fetch('/api/observations').then(r => r.json()),
+      fetch('/api/learning-topics').then(r => r.json()),
     ])
-      .then(([t, instr, tags, cl, rl, sett, accs, exps, strats, obs]) => {
+      .then(([t, instr, tags, cl, rl, sett, accs, exps, strats, obs, topics]) => {
         setTrades(t)
         setInstruments(instr)
         setAllTags(tags)
@@ -138,6 +141,7 @@ export default function App() {
         setExpenses(exps)
         setStrategies(strats)
         setObservations(obs)
+        setLearningTopics(topics)
         setLoading(false)
       })
       .catch(err => { setError(err.message); setLoading(false) })
@@ -324,6 +328,33 @@ export default function App() {
   const refetchObservations = useCallback(async () => {
     const r = await fetch('/api/observations')
     setObservations(await r.json())
+  }, [])
+
+  const addLearningTopic = useCallback(async (data) => {
+    const r = await fetch('/api/learning-topics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    const newTopic = await r.json()
+    setLearningTopics(prev => [...prev, newTopic])
+    return newTopic
+  }, [])
+
+  const updateLearningTopic = useCallback(async (id, data) => {
+    const r = await fetch(`/api/learning-topics/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    const updated = await r.json()
+    setLearningTopics(prev => prev.map(t => t.id === id ? updated : t))
+  }, [])
+
+  const deleteLearningTopic = useCallback(async (id) => {
+    const res = await fetch(`/api/learning-topics/${id}`, { method: 'DELETE' })
+    if (res.ok) setLearningTopics(prev => prev.filter(t => t.id !== id))
+    return res
   }, [])
 
   const addExpense = useCallback(async (data) => {
@@ -696,6 +727,15 @@ export default function App() {
               onUpdateObservation={updateObservation}
               onDeleteObservation={deleteObservation}
               onRefetchObservations={refetchObservations}
+            />
+          )}
+
+          {activeView === 'learning' && (
+            <LearningPage
+              topics={learningTopics}
+              onAddTopic={addLearningTopic}
+              onUpdateTopic={updateLearningTopic}
+              onDeleteTopic={deleteLearningTopic}
             />
           )}
 

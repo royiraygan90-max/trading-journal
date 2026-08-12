@@ -145,6 +145,16 @@ def init_db():
             has_image     INTEGER DEFAULT 0,
             created_at    TEXT DEFAULT (datetime('now'))
         );
+
+        CREATE TABLE IF NOT EXISTS learning_topics (
+            id          TEXT PRIMARY KEY,
+            title       TEXT NOT NULL,
+            status      TEXT DEFAULT 'to_learn',
+            notes       TEXT DEFAULT '',
+            links       TEXT DEFAULT '[]',
+            sort_order  INTEGER DEFAULT 0,
+            created_at  TEXT DEFAULT (datetime('now'))
+        );
     ''')
 
     # Seed instruments

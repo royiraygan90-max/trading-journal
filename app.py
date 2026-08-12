@@ -93,6 +93,15 @@ def trade_to_dict(row):
     return d
 
 
+def learning_topic_to_dict(row):
+    d = dict(row)
+    try:
+        d['links'] = json.loads(d.get('links') or '[]')
+    except Exception:
+        d['links'] = []
+    return d
+
+
 # ── trades ───────────────────────────────────────────────────────────────────
 @app.route('/api/trades', methods=['GET'])
 def get_trades():
@@ -1190,6 +1199,177 @@ def delete_observation_image(obs_id, filename):
 def serve_observation_image(obs_id, filename):
     filename = os.path.basename(filename)
     folder   = os.path.join(IMAGES_DIR, 'observations', obs_id)
+    return send_from_directory(folder, filename)
+
+
+# ── learning topics ─────────────────────────────────────────────────────────────
+@app.route('/api/learning-topics', methods=['GET'])
+def get_learning_topics():
+    db   = get_db()
+    rows = db.execute('SELECT * FROM learning_topics ORDER BY sort_order, created_at').fetchall()
+    db.close()
+    return jsonify([learning_topic_to_dict(r) for r in rows])
+
+
+@app.route('/api/learning-topics', methods=['POST'])
+def add_learning_topic():
+    data = request.get_json()
+    tid  = 'topic_' + uuid.uuid4().hex[:8]
+    db   = get_db()
+    db.execute(
+        '''INSERT INTO learning_topics (id, title, status, notes, links, sort_order)
+           VALUES (:id,:title,:status,:notes,:links,:sort_order)''',
+        {
+            'id':         tid,
+            'title':      data.get('title', ''),
+            'status':     data.get('status', 'to_learn'),
+            'notes':      data.get('notes', ''),
+            'links':      json.dumps(data.get('links', [])),
+            'sort_order': data.get('sort_order', 0),
+        }
+    )
+    db.commit()
+    row = db.execute('SELECT * FROM learning_topics WHERE id=?', (tid,)).fetchone()
+    db.close()
+    return jsonify(learning_topic_to_dict(row)), 201
+
+
+@app.route('/api/learning-topics/<topic_id>', methods=['PUT'])
+def update_learning_topic(topic_id):
+    data     = request.get_json()
+    db       = get_db()
+    existing = db.execute('SELECT * FROM learning_topics WHERE id=?', (topic_id,)).fetchone()
+    if existing is None:
+        db.close()
+        return jsonify({'error': 'Not found'}), 404
+
+    def g(name):
+        return data[name] if name in data else existing[name]
+
+    links = data['links'] if 'links' in data else json.loads(existing['links'] or '[]')
+
+    db.execute(
+        '''UPDATE learning_topics SET
+               title=:title, status=:status, notes=:notes,
+               links=:links, sort_order=:sort_order
+           WHERE id=:id''',
+        {
+            'id':         topic_id,
+            'title':      g('title'),
+            'status':     g('status'),
+            'notes':      g('notes'),
+            'links':      json.dumps(links),
+            'sort_order': g('sort_order'),
+        }
+    )
+    db.commit()
+    row = db.execute('SELECT * FROM learning_topics WHERE id=?', (topic_id,)).fetchone()
+    db.close()
+    return jsonify(learning_topic_to_dict(row))
+
+
+@app.route('/api/learning-topics/<topic_id>', methods=['DELETE'])
+def delete_learning_topic(topic_id):
+    db = get_db()
+    db.execute('DELETE FROM learning_topics WHERE id=?', (topic_id,))
+    db.commit()
+    db.close()
+    shutil.rmtree(os.path.join(IMAGES_DIR, 'learning', topic_id), ignore_errors=True)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/learning-topics/<topic_id>/images', methods=['GET'])
+def get_learning_topic_images(topic_id):
+    folder = os.path.join(IMAGES_DIR, 'learning', topic_id)
+    if not os.path.exists(folder):
+        return jsonify([])
+    files = sorted(
+        f for f in os.listdir(folder)
+        if os.path.splitext(f)[1].lower() in ALLOWED_EXTENSIONS
+    )
+    return jsonify([f'/api/learning-topic-images/{topic_id}/{f}' for f in files])
+
+
+@app.route('/api/learning-topics/<topic_id>/images', methods=['POST'])
+def upload_learning_topic_images(topic_id):
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    files  = request.files.getlist('file')
+    folder = os.path.join(IMAGES_DIR, 'learning', topic_id)
+    os.makedirs(folder, exist_ok=True)
+    saved  = []
+    for f in files:
+        raw = secure_filename(f.filename or '')
+        if not raw:
+            continue
+        base, ext = os.path.splitext(raw)
+        if ext.lower() not in ALLOWED_EXTENSIONS:
+            continue
+        unique = f"{base}_{uuid.uuid4().hex[:6]}{ext}"
+        f.save(os.path.join(folder, unique))
+        saved.append(f'/api/learning-topic-images/{topic_id}/{unique}')
+    return jsonify(saved), 201
+
+
+@app.route('/api/learning-topics/<topic_id>/images/<filename>', methods=['DELETE'])
+def delete_learning_topic_image(topic_id, filename):
+    filename = os.path.basename(filename)
+    path     = os.path.join(IMAGES_DIR, 'learning', topic_id, filename)
+    if os.path.exists(path):
+        os.remove(path)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/learning-topic-images/<topic_id>/<filename>')
+def serve_learning_topic_image(topic_id, filename):
+    filename = os.path.basename(filename)
+    folder   = os.path.join(IMAGES_DIR, 'learning', topic_id)
+    return send_from_directory(folder, filename)
+
+
+@app.route('/api/learning-topics/<topic_id>/videos', methods=['GET'])
+def get_learning_topic_videos(topic_id):
+    folder = os.path.join(IMAGES_DIR, 'learning', topic_id, 'videos')
+    if not os.path.exists(folder):
+        return jsonify([])
+    files = sorted(
+        f for f in os.listdir(folder)
+        if os.path.splitext(f)[1].lower() in ALLOWED_VIDEO_EXTENSIONS
+    )
+    return jsonify([f'/api/learning-topic-videos/{topic_id}/{f}' for f in files])
+
+
+@app.route('/api/learning-topics/<topic_id>/videos', methods=['POST'])
+def upload_learning_topic_video(topic_id):
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    f   = request.files['file']
+    raw = secure_filename(f.filename or '')
+    if not raw:
+        return jsonify({'error': 'Empty filename'}), 400
+    base, ext = os.path.splitext(raw)
+    if ext.lower() not in ALLOWED_VIDEO_EXTENSIONS:
+        return jsonify({'error': f'Unsupported format: {ext}'}), 400
+    folder = os.path.join(IMAGES_DIR, 'learning', topic_id, 'videos')
+    os.makedirs(folder, exist_ok=True)
+    unique = f'{base}_{uuid.uuid4().hex[:6]}{ext}'
+    f.save(os.path.join(folder, unique))
+    return jsonify({'url': f'/api/learning-topic-videos/{topic_id}/{unique}'}), 201
+
+
+@app.route('/api/learning-topics/<topic_id>/videos/<filename>', methods=['DELETE'])
+def delete_learning_topic_video(topic_id, filename):
+    filename = os.path.basename(filename)
+    path     = os.path.join(IMAGES_DIR, 'learning', topic_id, 'videos', filename)
+    if os.path.exists(path):
+        os.remove(path)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/learning-topic-videos/<topic_id>/<filename>')
+def serve_learning_topic_video(topic_id, filename):
+    filename = os.path.basename(filename)
+    folder   = os.path.join(IMAGES_DIR, 'learning', topic_id, 'videos')
     return send_from_directory(folder, filename)
 
 
