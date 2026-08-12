@@ -2,7 +2,7 @@ import React from 'react'
 import {
   LayoutDashboard, List, CalendarDays, BarChart2,
   Tag, Settings, Wallet, Briefcase, FlaskConical,
-  Upload, Sliders, X, TrendingUp,
+  Upload, Sliders, X, TrendingUp, GraduationCap,
 } from 'lucide-react'
 
 const NAV = [
@@ -14,6 +14,7 @@ const NAV = [
   { id: 'accounts',   label: 'Accounts',   icon: Wallet },
   { id: 'business',   label: 'Business',   icon: Briefcase },
   { id: 'strategies', label: 'Strategies', icon: FlaskConical },
+  { id: 'learning',   label: 'Learning',   icon: GraduationCap },
 ]
 
 export default function Sidebar({

@@ -3460,4 +3460,127 @@ tr:hover .row-actions { opacity: 1; }
   }
 }
 
+/* ── Learning page ─────────────────────────────────────────────────────────── */
+.learning-add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.learning-add-row .form-input { flex: 1; }
+
+.learning-title-input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.learning-status-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.learning-save-notes { margin-top: 8px; }
+.learning-save-notes.btn-saved {
+  background: var(--green-dim) !important;
+  color: var(--green) !important;
+  border-color: var(--green) !important;
+}
+
+.learning-links-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.learning-link-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-3);
+  text-decoration: none;
+  transition: border-color var(--transition);
+}
+.learning-link-card:hover { border-color: var(--border-bright); }
+
+.learning-link-thumb {
+  width: 64px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--bg-4);
+}
+
+.learning-link-thumb-generic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+}
+
+.learning-link-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.learning-link-title {
+  font-size: 0.8rem;
+  color: var(--text-0);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.learning-link-url {
+  font-size: 0.7rem;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.learning-link-external { color: var(--text-2); flex-shrink: 0; }
+
+.learning-link-remove {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: var(--text-2);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.learning-link-remove:hover { background: var(--red-dim); color: var(--red); }
+
+.learning-add-link-row {
+  display: flex;
+  gap: 8px;
+}
+.learning-add-link-row .form-input { flex: 1; }
+
+@media (max-width: 768px) {
+  .learning-add-link-row { flex-wrap: wrap; }
+  .learning-add-link-row .form-input { min-width: 100%; }
+  .learning-add-link-row button { margin-left: auto; }
+}
+
 
